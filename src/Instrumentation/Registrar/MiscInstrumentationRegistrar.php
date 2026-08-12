@@ -1,23 +1,24 @@
 <?php
 /**
- * This file is part of the Mumzworld_OpenTelemetry package.
+ * This file is part of the MagePsycho_OpenTelemetry package.
  *
- * @author    Raj KB <rajendra.bhatta@mumzworld.com>
- * @copyright Copyright (c) 2025 MumzWorld (https://www.mumzworld.com)
+ * @author    Raj KB <rajkb@magepsycho.com>
+ * @copyright Copyright (c) 2025 MumzWorld (https://www.mumzworld.com) - original work
+ * @copyright Copyright (c) 2025 MagePsycho (https://www.magepsycho.com) - modifications
  */
 declare(strict_types=1);
 
-namespace Mumzworld\OpenTelemetry\Instrumentation\Registrar;
+namespace MagePsycho\OpenTelemetry\Instrumentation\Registrar;
 
-use Mumzworld\OpenTelemetry\Instrumentation\Misc\AbstractDbInstrumentation;
-use Mumzworld\OpenTelemetry\Instrumentation\Misc\HttpClientInstrumentation;
-use Mumzworld\OpenTelemetry\Instrumentation\Misc\InventoryInstrumentation;
-use Mumzworld\OpenTelemetry\Instrumentation\Misc\PricingInstrumentation;
-use Mumzworld\OpenTelemetry\Instrumentation\Misc\RepositoryInstrumentation;
-use Mumzworld\OpenTelemetry\Instrumentation\Misc\SalesRuleInstrumentation;
-use Mumzworld\OpenTelemetry\Instrumentation\Misc\ShippingInstrumentation;
-use Mumzworld\OpenTelemetry\Instrumentation\InstrumentationRegistrarInterface;
-use Mumzworld\OpenTelemetry\Instrumentation\Misc\TotalCollectorInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Misc\AbstractDbInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Misc\HttpClientInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Misc\InventoryInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Misc\PricingInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Misc\RepositoryInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Misc\SalesRuleInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Misc\ShippingInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\InstrumentationRegistrarInterface;
+use MagePsycho\OpenTelemetry\Instrumentation\Misc\TotalCollectorInstrumentation;
 
 class MiscInstrumentationRegistrar implements InstrumentationRegistrarInterface
 {

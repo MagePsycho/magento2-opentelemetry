@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Only the **latest major release branch** of `mumzworld/magento2-opentelemetry` receives official security updates and patches. We encourage all users to upgrade to the latest stable version as soon as possible to ensure the highest level of security.
+Only the **latest major release branch** of `magepsycho/magento2-opentelemetry` receives official security updates and patches. We encourage all users to upgrade to the latest stable version as soon as possible to ensure the highest level of security.
 
 | Version | Supported |
 | :--- | :--- |
@@ -17,7 +17,7 @@ We take security vulnerabilities seriously and appreciate the community's help i
 
 Instead, please report the vulnerability immediately and privately using one of the following methods:
 
-1.  **Email:** Send an email to **tech.sre@mumzworld.com**.
+1.  **Email:** Send an email to **rajkb@magepsycho.com**.
 2.  **GitHub Private Reporting:** Use the official GitHub feature to [privately report a security vulnerability](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability).
 
 ### How to Report

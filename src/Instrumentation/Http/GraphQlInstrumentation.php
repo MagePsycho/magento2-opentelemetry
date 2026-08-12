@@ -1,13 +1,14 @@
 <?php
 /**
- * This file is part of the Mumzworld_OpenTelemetry package.
+ * This file is part of the MagePsycho_OpenTelemetry package.
  *
- * @author    Raj KB <rajendra.bhatta@mumzworld.com>
- * @copyright Copyright (c) 2025 MumzWorld (https://www.mumzworld.com)
+ * @author    Raj KB <rajkb@magepsycho.com>
+ * @copyright Copyright (c) 2025 MumzWorld (https://www.mumzworld.com) - original work
+ * @copyright Copyright (c) 2025 MagePsycho (https://www.magepsycho.com) - modifications
  */
 declare(strict_types=1);
 
-namespace Mumzworld\OpenTelemetry\Instrumentation\Http;
+namespace MagePsycho\OpenTelemetry\Instrumentation\Http;
 
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\ResponseInterface;
@@ -16,10 +17,10 @@ use Magento\Framework\GraphQl\Query\QueryProcessor;
 use Magento\Framework\GraphQl\Query\Resolver\ContextInterface;
 use Magento\Framework\GraphQl\Query\ResolverInterface;
 use Magento\GraphQl\Controller\GraphQl\Interceptor as GraphQlInterceptor;
-use Mumzworld\OpenTelemetry\Instrumentation\AbstractInstrumentation;
-use Mumzworld\OpenTelemetry\Instrumentation\Util\Http\GraphQlQueryParser;
-use Mumzworld\OpenTelemetry\Instrumentation\Util\Http\RequestHandler;
-use Mumzworld\OpenTelemetry\Instrumentation\Util\Http\ResponseHandler;
+use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Util\Http\GraphQlQueryParser;
+use MagePsycho\OpenTelemetry\Instrumentation\Util\Http\RequestHandler;
+use MagePsycho\OpenTelemetry\Instrumentation\Util\Http\ResponseHandler;
 use OpenTelemetry\API\Trace\LocalRootSpan;
 use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\SpanKind;

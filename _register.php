@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use Mumzworld\OpenTelemetry\Instrumentation\InstrumentationGuard;
-use Mumzworld\OpenTelemetry\Instrumentation\Registrar\CacheInstrumentationRegistrar;
-use Mumzworld\OpenTelemetry\Instrumentation\Registrar\CliInstrumentationRegistrar;
-use Mumzworld\OpenTelemetry\Instrumentation\Registrar\CoreInstrumentationRegistrar;
-use Mumzworld\OpenTelemetry\Instrumentation\Registrar\DatabaseInstrumentationRegistrar;
-use Mumzworld\OpenTelemetry\Instrumentation\Registrar\EntityInstrumentationRegistrar;
-use Mumzworld\OpenTelemetry\Instrumentation\Registrar\HttpInstrumentationRegistrar;
-use Mumzworld\OpenTelemetry\Instrumentation\Registrar\MiscInstrumentationRegistrar;
+use MagePsycho\OpenTelemetry\Instrumentation\InstrumentationGuard;
+use MagePsycho\OpenTelemetry\Instrumentation\Registrar\CacheInstrumentationRegistrar;
+use MagePsycho\OpenTelemetry\Instrumentation\Registrar\CliInstrumentationRegistrar;
+use MagePsycho\OpenTelemetry\Instrumentation\Registrar\CoreInstrumentationRegistrar;
+use MagePsycho\OpenTelemetry\Instrumentation\Registrar\DatabaseInstrumentationRegistrar;
+use MagePsycho\OpenTelemetry\Instrumentation\Registrar\EntityInstrumentationRegistrar;
+use MagePsycho\OpenTelemetry\Instrumentation\Registrar\HttpInstrumentationRegistrar;
+use MagePsycho\OpenTelemetry\Instrumentation\Registrar\MiscInstrumentationRegistrar;
 
 if (!InstrumentationGuard::isInstrumentationEligible()) {
     return;

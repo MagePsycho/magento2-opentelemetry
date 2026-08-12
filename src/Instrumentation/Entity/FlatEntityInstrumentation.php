@@ -1,15 +1,19 @@
 <?php
 /**
- * This file is part of the Mumzworld_OpenTelemetry package.
+ * This file is part of the MagePsycho_OpenTelemetry package.
  *
  * Instrument generic Magento 2 entities (EAV + non-EAV) for save, load, delete operations.
+ *
+ * @author    Raj KB <rajkb@magepsycho.com>
+ * @copyright Copyright (c) 2025 MumzWorld (https://www.mumzworld.com) - original work
+ * @copyright Copyright (c) 2025 MagePsycho (https://www.magepsycho.com) - modifications
  */
 declare(strict_types=1);
 
-namespace Mumzworld\OpenTelemetry\Instrumentation\Entity;
+namespace MagePsycho\OpenTelemetry\Instrumentation\Entity;
 
 use OpenTelemetry\API\Trace\SpanKind;
-use Mumzworld\OpenTelemetry\Instrumentation\AbstractInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use Throwable;
 use function OpenTelemetry\Instrumentation\hook;
 

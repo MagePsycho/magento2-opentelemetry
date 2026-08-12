@@ -1,17 +1,18 @@
 <?php
 /**
- * This file is part of the Mumzworld_OpenTelemetry package.
+ * This file is part of the MagePsycho_OpenTelemetry package.
  *
- * @author    Raj KB <rajendra.bhatta@mumzworld.com>
- * @copyright Copyright (c) 2025 MumzWorld (https://www.mumzworld.com)
+ * @author    Raj KB <rajkb@magepsycho.com>
+ * @copyright Copyright (c) 2025 MumzWorld (https://www.mumzworld.com) - original work
+ * @copyright Copyright (c) 2025 MagePsycho (https://www.magepsycho.com) - modifications
  */
 declare(strict_types=1);
 
-namespace Mumzworld\OpenTelemetry\Instrumentation\Core;
+namespace MagePsycho\OpenTelemetry\Instrumentation\Core;
 
 use Magento\Framework\App\Bootstrap;
 use Magento\Framework\App\Http;
-use Mumzworld\OpenTelemetry\Instrumentation\AbstractInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\API\Trace\StatusCode;

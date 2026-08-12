@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Composer library package (`mumzworld/magento2-opentelemetry`) that adds OpenTelemetry tracing to Magento 2. It hooks into Magento core classes at runtime to create spans for HTTP requests, database queries, cache operations, CLI commands, entity operations, and business logic (pricing, shipping, inventory, sales rules).
+Composer library package (`magepsycho/magento2-opentelemetry`) that adds OpenTelemetry tracing to Magento 2. It hooks into Magento core classes at runtime to create spans for HTTP requests, database queries, cache operations, CLI commands, entity operations, and business logic (pricing, shipping, inventory, sales rules).
 
 This is **not** a Magento module — it has no `etc/module.xml` or DI configuration. It bootstraps entirely via composer's `autoload.files` array through `_register.php`.
 
@@ -60,6 +60,6 @@ src/Instrumentation/
 ## Development Notes
 
 - No test suite, linting, or CI pipeline exists yet
-- All files use `declare(strict_types=1)` and PSR-4 autoloading under `Mumzworld\OpenTelemetry\`
+- All files use `declare(strict_types=1)` and PSR-4 autoloading under `MagePsycho\OpenTelemetry\`
 - All instrumentation is wrapped in try-catch to never break the host Magento application
 - The `README.md` contains setup/installation instructions and optimization tips

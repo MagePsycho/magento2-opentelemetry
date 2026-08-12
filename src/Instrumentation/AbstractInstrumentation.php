@@ -1,22 +1,23 @@
 <?php
 /**
- * This file is part of the Mumzworld_OpenTelemetry package.
+ * This file is part of the MagePsycho_OpenTelemetry package.
  *
  * Provides an abstract class for OpenTelemetry instrumentation in Magento.
  * It includes utility functions for tracing spans, processing exceptions,
  * handling URL segments, safely encoding JSON, etc.
  *
- * @author    Raj KB <rajendra.bhatta@mumzworld.com>
- * @copyright Copyright (c) 2025 MumzWorld (https://www.mumzworld.com)
+ * @author    Raj KB <rajkb@magepsycho.com>
+ * @copyright Copyright (c) 2025 MumzWorld (https://www.mumzworld.com) - original work
+ * @copyright Copyright (c) 2025 MagePsycho (https://www.magepsycho.com) - modifications
  */
 declare(strict_types=1);
 
-namespace Mumzworld\OpenTelemetry\Instrumentation;
+namespace MagePsycho\OpenTelemetry\Instrumentation;
 
 use OpenTelemetry\API\Trace\LocalRootSpan;
 use OpenTelemetry\API\Trace\SpanInterface;
-use Mumzworld\OpenTelemetry\Instrumentation\Util\Traits\SpanBuilderTrait;
-use Mumzworld\OpenTelemetry\Instrumentation\Util\Traits\AttributeSanitizerTrait;
+use MagePsycho\OpenTelemetry\Instrumentation\Util\Traits\SpanBuilderTrait;
+use MagePsycho\OpenTelemetry\Instrumentation\Util\Traits\AttributeSanitizerTrait;
 
 /**
  * AbstractInstrumentation provides core tracing functionalities for OpenTelemetry integration in Magento.

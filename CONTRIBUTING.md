@@ -1,6 +1,6 @@
-# Contributing to mumzworld/magento2-opentelemetry
+# Contributing to magepsycho/magento2-opentelemetry
 
-We welcome contributions to the `mumzworld/magento2-opentelemetry` package! Before you start, please take a moment to read this guide.
+We welcome contributions to the `magepsycho/magento2-opentelemetry` package! Before you start, please take a moment to read this guide.
 
 ## 🤝 Code of Conduct
 
@@ -29,7 +29,7 @@ We love hearing new ideas! For major features or significant changes:
 
 To contribute code, please follow these steps:
 
-1.  **Fork:** Fork the `mumzworld/magento2-opentelemetry` repository.
+1.  **Fork:** Fork the `magepsycho/magento2-opentelemetry` repository.
 2.  **Clone:** Clone your forked repository to your local machine.
 3.  **Setup:** Follow the installation and setup steps detailed in the **[README.md](README.md)**.
 4.  **Branch:** Create a new branch for your feature or fix (e.g., `feature/add-trace-id` or `fix/error-reporting`).

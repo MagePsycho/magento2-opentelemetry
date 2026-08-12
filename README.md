@@ -5,8 +5,8 @@
 
 OpenTelemetry integration package for Magento 2 applications with complete observability stack
 
-[![Packagist Version](https://img.shields.io/github/v/tag/mumzworld-tech/magento2-opentelemetry?logo=packagist&sort=semver&label=packagist&style=for-the-badge)](https://packagist.org/packages/mumzworld/magento2-opentelemetry)
-[![Packagist Downloads](https://img.shields.io/packagist/dt/mumzworld/magento2-opentelemetry.svg?logo=composer&style=for-the-badge)](https://packagist.org/packages/mumzworld/magento2-opentelemetry/stats)
+[![Packagist Version](https://img.shields.io/packagist/v/magepsycho/magento2-opentelemetry?logo=packagist&label=packagist&style=for-the-badge)](https://packagist.org/packages/magepsycho/magento2-opentelemetry)
+[![Packagist Downloads](https://img.shields.io/packagist/dt/magepsycho/magento2-opentelemetry.svg?logo=composer&style=for-the-badge)](https://packagist.org/packages/magepsycho/magento2-opentelemetry/stats)
 ![Supported Magento Versions](https://img.shields.io/badge/magento-%202.4-brightgreen.svg?logo=magento&longCache=true&style=for-the-badge)
 ![License](https://img.shields.io/badge/license-MIT-green?color=%23234&style=for-the-badge)
 
@@ -111,15 +111,26 @@ php --ri opentelemetry
 composer require open-telemetry/sdk open-telemetry/api open-telemetry/sem-conv open-telemetry/exporter-otlp
 ```
 
-> **Note:** These packages are automatically installed as dependencies when you install `mumzworld/magento2-opentelemetry`. You only need to install them manually if you're setting up OpenTelemetry without this package.
+> **Note:** These packages are automatically installed as dependencies when you install `magepsycho/magento2-opentelemetry`. You only need to install them manually if you're setting up OpenTelemetry without this package.
 
 ## 📦 Package Installation
 
 ```bash
-composer require mumzworld/magento2-opentelemetry
+composer require magepsycho/magento2-opentelemetry
 ```
 
 No Magento module setup is needed — the package bootstraps automatically via Composer's autoload mechanism.
+
+### Migrating from `mumzworld/magento2-opentelemetry`
+
+Remove the old package first — both register the same runtime hooks, so running them together emits duplicate spans:
+
+```bash
+composer remove mumzworld/magento2-opentelemetry
+composer require magepsycho/magento2-opentelemetry
+```
+
+The PHP namespace changed from `Mumzworld\OpenTelemetry\` to `MagePsycho\OpenTelemetry\`. If you referenced any class directly, update those imports.
 
 ## 🔍 What Is Auto-Instrumented
 
@@ -280,4 +291,10 @@ For support and questions:
 
 ---
 
-Built with ❤️ by Mumzworld Development Team
+Built with ❤️ by [MagePsycho](https://www.magepsycho.com)
+
+## 📄 License & Attribution
+
+Released under the [MIT License](LICENSE).
+
+This package is derived from [mumzworld-tech/magento2-opentelemetry](https://github.com/mumzworld-tech/magento2-opentelemetry), Copyright (c) 2025 mumzworld, licensed under MIT. The original copyright notice is retained in [LICENSE](LICENSE) and in the source file headers, as the MIT License requires.

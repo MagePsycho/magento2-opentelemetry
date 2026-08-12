@@ -2,14 +2,27 @@
   "name": "magepsycho/magento2-opentelemetry",
   "description": "OpenTelemetry integration package for Magento 2 applications with complete observability stack",
   "type": "library",
-  "version": "1.0.0",
   "license": "MIT",
+  "keywords": [
+    "magento",
+    "magento2",
+    "opentelemetry",
+    "otel",
+    "observability",
+    "tracing",
+    "apm"
+  ],
+  "homepage": "https://github.com/MagePsycho/magento2-opentelemetry",
   "authors": [
     {
       "name": "Raj KB",
       "email": "rajkb@magepsycho.com"
     }
   ],
+  "support": {
+    "issues": "https://github.com/MagePsycho/magento2-opentelemetry/issues",
+    "source": "https://github.com/MagePsycho/magento2-opentelemetry"
+  },
   "require": {
     "php": "^8.1",
     "magento/framework": "*",
@@ -20,7 +33,7 @@
   },
   "autoload": {
     "psr-4": {
-      "Mumzworld\\OpenTelemetry\\": "src/"
+      "MagePsycho\\OpenTelemetry\\": "src/"
     },
     "files": [
       "_register.php"

@@ -1,19 +1,20 @@
 <?php
 /**
- * This file is part of the Mumzworld_OpenTelemetry package.
+ * This file is part of the MagePsycho_OpenTelemetry package.
  *
- * @author    Raj KB <rajendra.bhatta@mumzworld.com>
- * @copyright Copyright (c) 2025 MumzWorld (https://www.mumzworld.com)
+ * @author    Raj KB <rajkb@magepsycho.com>
+ * @copyright Copyright (c) 2025 MumzWorld (https://www.mumzworld.com) - original work
+ * @copyright Copyright (c) 2025 MagePsycho (https://www.magepsycho.com) - modifications
  */
 declare(strict_types=1);
 
-namespace Mumzworld\OpenTelemetry\Instrumentation\Database;
+namespace MagePsycho\OpenTelemetry\Instrumentation\Database;
 
 use Magento\Framework\DB\Adapter\Pdo\Mysql;
 use Magento\Framework\DB\Adapter\Pdo\Mysql\Interceptor as MysqlInterceptor;
 use Magento\Framework\DB\Select;
-use Mumzworld\OpenTelemetry\Instrumentation\AbstractInstrumentation;
-use Mumzworld\OpenTelemetry\Instrumentation\Util\SpanLimiter;
+use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Util\SpanLimiter;
 use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\Context\Context;
