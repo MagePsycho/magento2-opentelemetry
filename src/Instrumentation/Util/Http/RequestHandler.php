@@ -12,7 +12,6 @@ namespace MagePsycho\OpenTelemetry\Instrumentation\Util\Http;
 
 use Magento\Framework\App\RequestInterface;
 use OpenTelemetry\API\Trace\SpanBuilderInterface;
-use OpenTelemetry\API\Trace\SpanContextValidator;
 use OpenTelemetry\SemConv\TraceAttributes;
 use Throwable;
 
@@ -35,13 +34,20 @@ class RequestHandler
         try {
             # Standard Headers
             if ($uri = $request->getUri()) {
-                $builder->setAttribute(TraceAttributes::URL_FULL, $uri->__toString() ?: '');
+                /*
+                 * Query string dropped, not truncated. REST and GraphQL URLs routinely carry tokens
+                 * and signatures, and a span is exported to a backend that retains it far longer than
+                 * the request lived. url.path and the masked route carry everything worth querying on.
+                 */
+                $builder->setAttribute(TraceAttributes::URL_FULL, self::stripQuery($uri->__toString() ?: ''));
                 $builder->setAttribute(TraceAttributes::URL_SCHEME, $uri->getScheme() ?: '');
                 $builder->setAttribute(TraceAttributes::URL_PATH, $uri->getPath() ?: '');
+                $builder->setAttribute(TraceAttributes::HTTP_ROUTE, self::maskRoute($uri->getPath() ?: ''));
                 $builder->setAttribute(TraceAttributes::SERVER_ADDRESS, $uri->getHost() ?: '');
                 $builder->setAttribute(TraceAttributes::SERVER_PORT, $uri->getPort() ?: '');
             }
             $builder->setAttribute(TraceAttributes::HTTP_REQUEST_METHOD, $request->getMethod() ?: 'UNKNOWN');
+            $builder->setAttribute(TraceAttributes::CLIENT_ADDRESS, self::clientAddress($request));
             $builder->setAttribute(
                 TraceAttributes::HTTP_REQUEST_BODY_SIZE,
                 $request->getHeader('Content-Length') ?: ''
@@ -60,14 +66,12 @@ class RequestHandler
             # Custom Application Headers
             $builder->setAttribute('http.request.xAppId', $request->getHeader('x-app-id') ?: '');
 
-            $traceparent = $request->getHeader('traceparent') ?: '';
-            if ($traceInfo = self::extractTraceInfo($traceparent)) {
-                $builder->setAttribute('http.request.traceparent', $traceparent);
-                $builder->setAttribute('http.request.traceId', $traceInfo['traceId']);
-                $builder->setAttribute('http.request.spanId', $traceInfo['spanId']);
-            } else {
-                $builder->setAttribute('http.request.traceId', $request->getHeader('traceID') ?: '');
-            }
+            /*
+             * The inbound traceparent used to be parsed here and stored as attributes. It is not any
+             * more: MagentoInstrumentation extracts it in Bootstrap::run() and makes it the parent of
+             * the root span, so the linkage is real rather than a string that happened to travel
+             * alongside a span belonging to a different trace.
+             */
 
             return $builder;
         } catch (Throwable $e) {
@@ -79,6 +83,10 @@ class RequestHandler
 
     /**
      * Generate root span name from request
+     *
+     * Named from the masked route, not the raw path. A span name is a grouping key: leaving the ids in
+     * gives "REST: GET /V1/orders/40021" one name per order, which is one row per order in every
+     * latency chart and a cardinality problem for the backend storing them.
      *
      * @param string $prefix
      * @param RequestInterface $request
@@ -98,11 +106,97 @@ class RequestHandler
                 '%s %s %s',
                 $prefix,
                 $method,
-                self::extractUrlSegments($path, 1, $noOfUriSegments)
+                self::maskRoute(self::extractUrlSegments($path, 1, $noOfUriSegments))
             );
         } catch (Throwable $e) {
             return $prefix . ' dispatch';
         }
+    }
+
+    /**
+     * Replace the identifying segments of a path with placeholders: /V1/orders/40021 -> /V1/orders/{id}.
+     *
+     * Magento has no route template to read at this point - the webapi router has not run yet, and the
+     * frontend has no route object at all - so the ids are recognised by shape. Numbers, SKUs with a
+     * digit in them, hashes and UUIDs are all identity; words are structure.
+     *
+     * @param string $path
+     * @return string
+     */
+    public static function maskRoute(string $path): string
+    {
+        if ($path === '' || $path === '/') {
+            return $path;
+        }
+
+        $masked = [];
+        foreach (explode('/', $path) as $segment) {
+            if ($segment === '') {
+                $masked[] = $segment;
+                continue;
+            }
+
+            $masked[] = self::isIdentifier($segment) ? '{id}' : $segment;
+        }
+
+        return implode('/', $masked);
+    }
+
+    /**
+     * @param string $segment
+     * @return bool
+     */
+    private static function isIdentifier(string $segment): bool
+    {
+        /*
+         * An API version is structure, not identity. Without this exception every REST path collapses
+         * to "/{id}/orders/{id}" and the route stops naming anything.
+         */
+        if (preg_match('/^v\d+$/i', $segment)) {
+            return false;
+        }
+
+        if (ctype_digit($segment)) {
+            return true;
+        }
+
+        /* 32+ hex characters, with or without the UUID dashes. */
+        if (preg_match('/^[0-9a-f]{8}-?(?:[0-9a-f]{4}-?){3}[0-9a-f]{12}$/i', $segment)
+            || preg_match('/^[0-9a-f]{32,}$/i', $segment)
+        ) {
+            return true;
+        }
+
+        /* A token carrying digits among letters - SKUs, increment ids, "order-40021". */
+        return (bool)preg_match('/\d/', $segment) && (bool)preg_match('/[^\d]/', $segment);
+    }
+
+    /**
+     * Drop the query string from a URL.
+     *
+     * @param string $url
+     * @return string
+     */
+    public static function stripQuery(string $url): string
+    {
+        $position = strpos($url, '?');
+
+        return $position === false ? $url : substr($url, 0, $position);
+    }
+
+    /**
+     * The client's address, as the request itself reports it.
+     *
+     * @param RequestInterface $request
+     * @return string
+     */
+    private static function clientAddress(RequestInterface $request): string
+    {
+        if (method_exists($request, 'getClientIp')) {
+            return (string)($request->getClientIp() ?: '');
+        }
+
+        return '';
     }
 
     /**
@@ -132,38 +226,6 @@ class RequestHandler
         } catch (Throwable $e) {
             return null;
         }
-    }
-
-    /**
-     * Extracts traceId and spanId from a traceparent header string
-     * Format: <version>-<traceId>-<spanId>-<flags>
-     *
-     * @param string $traceparent
-     * @return array|null
-     */
-    private static function extractTraceInfo(string $traceparent): ?array
-    {
-        $traceparent = trim($traceparent);
-        if (empty($traceparent)) {
-            return null;
-        }
-
-        $traceParts = explode('-', $traceparent);
-        // Check if format is valid (should have 4 parts)
-        if (count($traceParts) !== 4) {
-            return null;
-        }
-
-        [, $traceId, $spanId, ] = $traceParts;
-
-        if (!SpanContextValidator::isValidSpanId($spanId) || !SpanContextValidator::isValidTraceId($traceId)) {
-            return null;
-        }
-
-        return [
-            'traceId' => $traceId,
-            'spanId' => $spanId
-        ];
     }
 
     /**

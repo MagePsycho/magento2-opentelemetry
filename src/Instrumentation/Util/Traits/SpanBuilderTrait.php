@@ -16,6 +16,7 @@ use OpenTelemetry\API\Trace\SpanBuilderInterface;
 use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\Context\Context;
+use OpenTelemetry\Context\ContextInterface;
 use OpenTelemetry\SemConv\TraceAttributes;
 use Throwable;
 
@@ -54,11 +55,15 @@ trait SpanBuilderTrait
      * Start a span with the given builder and attach it to the current context
      *
      * @param SpanBuilderInterface $builder The span builder
+     * @param ContextInterface|null $parent Explicit parent, e.g. a context extracted from inbound
+     *                                      trace headers. Defaults to the current context.
      * @return SpanInterface The created span
      */
-    protected static function startSpanAndAttachToContext(SpanBuilderInterface $builder): SpanInterface
-    {
-        $parent = Context::getCurrent();
+    protected static function startSpanAndAttachToContext(
+        SpanBuilderInterface $builder,
+        ?ContextInterface $parent = null
+    ): SpanInterface {
+        $parent = $parent ?? Context::getCurrent();
         $span = $builder->setParent($parent)->startSpan();
         Context::storage()->attach($span->storeInContext($parent));
 
