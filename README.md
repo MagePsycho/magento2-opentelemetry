@@ -132,6 +132,25 @@ composer require magepsycho/magento2-opentelemetry
 
 The PHP namespace changed from `Mumzworld\OpenTelemetry\` to `MagePsycho\OpenTelemetry\`. If you referenced any class directly, update those imports.
 
+## 🔗 Distributed Tracing
+
+Magento participates in traces that start elsewhere, and passes its own context onward.
+
+**Inbound** — the trace context is extracted in `Bootstrap::run()`, which is where the root span opens.
+Extracting any later would leave an unparented local root above a remote-parented child and split the
+trace in two. The carrier is `$_SERVER`, since no request object exists that early.
+
+**Outbound** — every HTTP client listed below injects the current span's context into the request
+headers, so the receiving service continues the same trace rather than starting a new one.
+
+Which headers travel is decided by `OTEL_PROPAGATORS` (see the `.ini` settings above) — `tracecontext`
+emits `traceparent`/`tracestate`. Requests without trace headers are unaffected, and CLI runs simply
+start their own trace.
+
+> Spans record **host and path only**, never the full URL with its query string, and the route is
+> masked — `/V1/orders/40021` is reported as `/V1/orders/{id}` so one span name covers every order
+> instead of one per order.
+
 ## 🔍 What Is Auto-Instrumented
 
 Once installed, this package automatically instruments the following Magento areas — no code changes required.

@@ -13,6 +13,8 @@ namespace MagePsycho\OpenTelemetry\Instrumentation\Core;
 use Magento\Framework\App\Bootstrap;
 use Magento\Framework\App\Http;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Util\Http\ServerPropagationGetter;
+use OpenTelemetry\API\Globals;
 use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\API\Trace\StatusCode;
@@ -70,7 +72,19 @@ class MagentoInstrumentation extends AbstractInstrumentation
                     $lineno,
                 )->setSpanKind(SpanKind::KIND_INTERNAL);
 
-                self::startSpanAndAttachToContext($builder);
+                /*
+                 * Join the caller's trace. This is the only place it can be done: every other span in
+                 * the request nests below this one, so extracting further down - in the REST or GraphQL
+                 * hook, say - would leave this unparented local root sitting above a remote-parented
+                 * child and split the trace in two.
+                 *
+                 * extract() hands back the context it was given when no trace headers are present, so
+                 * CLI runs and uninstrumented callers are unaffected.
+                 */
+                self::startSpanAndAttachToContext(
+                    $builder,
+                    Globals::propagator()->extract($_SERVER, ServerPropagationGetter::instance())
+                );
             },
             static function (
                 Bootstrap   $subject,

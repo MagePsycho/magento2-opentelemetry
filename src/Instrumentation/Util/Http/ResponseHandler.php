@@ -32,7 +32,17 @@ class ResponseHandler
     ): SpanInterface {
         try {
             $statusCode = $response->getStatusCode();
-            $span->setStatus($statusCode >= 400 ? StatusCode::STATUS_ERROR : StatusCode::STATUS_OK);
+            /*
+             * 5xx only, and nothing at all otherwise.
+             *
+             * A 4xx is the caller's mistake, not a failure of this server, and semconv is explicit that
+             * it must not mark a SERVER span as errored - a store with ordinary 404s would otherwise
+             * read as a store that is failing. Success is left Unset for the same reason: Ok is
+             * reserved for an explicit assertion by the application, not for "nothing went wrong".
+             */
+            if ($statusCode >= 500) {
+                $span->setStatus(StatusCode::STATUS_ERROR);
+            }
             $span->setAttribute(TraceAttributes::HTTP_RESPONSE_STATUS_CODE, $statusCode);
             $span->setAttribute(TraceAttributes::NETWORK_PROTOCOL_VERSION, $response->getVersion());
 

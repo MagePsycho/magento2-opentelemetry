@@ -13,11 +13,15 @@ namespace MagePsycho\OpenTelemetry\Instrumentation\Http;
 use Closure;
 use GuzzleHttp\Client;
 use Magento\Framework\HTTP\Adapter\Curl as CurlAdapter;
+use Magento\Framework\HTTP\AsyncClient\Request as AsyncRequest;
 use Magento\Framework\HTTP\AsyncClientInterface;
 use Magento\Framework\HTTP\ClientInterface as MagentoHttpClient;
 use Magento\Framework\HTTP\LaminasClient;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
+use OpenTelemetry\API\Globals;
 use OpenTelemetry\API\Trace\SpanKind;
+use OpenTelemetry\Context\Context;
+use OpenTelemetry\Context\Propagation\ArrayAccessGetterSetter;
 use OpenTelemetry\SemConv\TraceAttributes;
 use Throwable;
 use function OpenTelemetry\Instrumentation\hook;
@@ -91,17 +95,34 @@ class HttpClientInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentGuzzleClient(): void
     {
-        self::hookOutboundCall(Client::class, 'send', static function (object $subject, array $params): array {
-            $request = $params[0] ?? null;
-            if (!is_object($request)
-                || !method_exists($request, 'getMethod')
-                || !method_exists($request, 'getUri')
-            ) {
-                return [self::UNKNOWN_METHOD, ''];
-            }
+        self::hookOutboundCall(
+            Client::class,
+            'send',
+            static function (object $subject, array $params): array {
+                $request = $params[0] ?? null;
+                if (!is_object($request)
+                    || !method_exists($request, 'getMethod')
+                    || !method_exists($request, 'getUri')
+                ) {
+                    return [self::UNKNOWN_METHOD, ''];
+                }
 
-            return [(string)$request->getMethod(), (string)$request->getUri()];
-        });
+                return [(string)$request->getMethod(), (string)$request->getUri()];
+            },
+            static function (object $subject, array $params): ?array {
+                $request = $params[0] ?? null;
+                /* PSR-7 requests are immutable, so the parameter has to be replaced wholesale. */
+                if (!is_object($request) || !method_exists($request, 'withHeader')) {
+                    return null;
+                }
+
+                foreach (self::traceHeaders() as $name => $value) {
+                    $request = $request->withHeader($name, $value);
+                }
+
+                return [$request, $params[1] ?? []];
+            }
+        );
     }
 
     /**
@@ -122,6 +143,21 @@ class HttpClientInstrumentation extends AbstractInstrumentation
                 $methodName,
                 static function (object $subject, array $params) use ($method): array {
                     return [$method, (string)($params[0] ?? '')];
+                },
+                static function (object $subject, array $params): ?array {
+                    /*
+                     * Headers live on the client here, not in the call, so the parameters are left
+                     * alone. addHeader() is on Client\Curl and Client\Socket but not on the interface
+                     * itself, hence the guard - a third-party implementation without it simply goes
+                     * uninjected rather than fatal.
+                     */
+                    if (method_exists($subject, 'addHeader')) {
+                        foreach (self::traceHeaders() as $name => $value) {
+                            $subject->addHeader($name, $value);
+                        }
+                    }
+
+                    return null;
                 }
             );
         }
@@ -140,17 +176,55 @@ class HttpClientInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentLaminasClient(): void
     {
-        self::hookOutboundCall(LaminasClient::class, 'send', static function (object $subject, array $params): array {
-            $request = $params[0] ?? null;
-            if (is_object($request) && method_exists($request, 'getMethod') && method_exists($request, 'getUriString')) {
-                return [(string)$request->getMethod(), (string)$request->getUriString()];
+        self::hookOutboundCall(
+            LaminasClient::class,
+            'send',
+            static function (object $subject, array $params): array {
+                $request = $params[0] ?? null;
+                if (is_object($request)
+                    && method_exists($request, 'getMethod')
+                    && method_exists($request, 'getUriString')
+                ) {
+                    return [(string)$request->getMethod(), (string)$request->getUriString()];
+                }
+
+                $method = method_exists($subject, 'getMethod') ? (string)$subject->getMethod() : self::UNKNOWN_METHOD;
+                $uri = method_exists($subject, 'getUri') ? (string)$subject->getUri() : '';
+
+                return [$method, $uri];
+            },
+            static function (object $subject, array $params): ?array {
+                /* Whichever request is about to be sent is the one that must carry the headers. */
+                $request = $params[0] ?? null;
+                if (!is_object($request) && method_exists($subject, 'getRequest')) {
+                    $request = $subject->getRequest();
+                }
+
+                if (!is_object($request) || !method_exists($request, 'getHeaders')) {
+                    return null;
+                }
+
+                $headers = $request->getHeaders();
+                if (!is_object($headers) || !method_exists($headers, 'addHeaderLine')) {
+                    return null;
+                }
+
+                foreach (self::traceHeaders() as $name => $value) {
+                    /* Laminas appends rather than replaces, so an existing header must go first. */
+                    if (method_exists($headers, 'has')
+                        && method_exists($headers, 'get')
+                        && method_exists($headers, 'removeHeader')
+                        && $headers->has($name)
+                    ) {
+                        $headers->removeHeader($headers->get($name));
+                    }
+
+                    $headers->addHeaderLine($name, $value);
+                }
+
+                return null;
             }
-
-            $method = method_exists($subject, 'getMethod') ? (string)$subject->getMethod() : self::UNKNOWN_METHOD;
-            $uri = method_exists($subject, 'getUri') ? (string)$subject->getUri() : '';
-
-            return [$method, $uri];
-        });
+        );
     }
 
     /**
@@ -171,11 +245,30 @@ class HttpClientInstrumentation extends AbstractInstrumentation
             'request',
             static function (object $subject, array $params): array {
                 $request = $params[0] ?? null;
-                if (!is_object($request) || !method_exists($request, 'getMethod') || !method_exists($request, 'getUrl')) {
+                if (!is_object($request)
+                    || !method_exists($request, 'getMethod')
+                    || !method_exists($request, 'getUrl')
+                ) {
                     return [self::UNKNOWN_METHOD, ''];
                 }
 
                 return [(string)$request->getMethod(), (string)$request->getUrl()];
+            },
+            static function (object $subject, array $params): ?array {
+                $request = $params[0] ?? null;
+                /* AsyncClient\Request has no setters, so a replacement carrying the headers is built. */
+                if (!$request instanceof AsyncRequest) {
+                    return null;
+                }
+
+                return [
+                    new AsyncRequest(
+                        $request->getUrl(),
+                        $request->getMethod(),
+                        array_merge($request->getHeaders(), self::traceHeaders()),
+                        $request->getBody()
+                    ),
+                ];
             }
         );
     }
@@ -197,11 +290,26 @@ class HttpClientInstrumentation extends AbstractInstrumentation
         hook(
             CurlAdapter::class,
             'write',
-            static function (object $subject, array $params): void {
+            static function (object $subject, array $params): ?array {
                 self::$pendingCurlRequests[spl_object_id($subject)] = [
                     (string)($params[0] ?? self::UNKNOWN_METHOD),
                     (string)($params[1] ?? ''),
                 ];
+
+                $headers = $params[3] ?? [];
+                /*
+                 * Only inject when nobody upstream did. Laminas prepares its own headers and hands
+                 * them straight to this method, so a client that already injected would otherwise get
+                 * a second traceparent appended here - normalizeHeaders() accepts both an assoc entry
+                 * and a "Name: value" line, so duplicates would survive all the way to the wire.
+                 */
+                if (!is_array($headers) || self::hasTraceHeader($headers)) {
+                    return null;
+                }
+
+                $params[3] = array_merge($headers, self::traceHeaders());
+
+                return $params;
             },
             null,
         );
@@ -255,11 +363,18 @@ class HttpClientInstrumentation extends AbstractInstrumentation
      * @param string $className Class or interface to hook.
      * @param string $methodName Method to hook.
      * @param Closure $describe Receives ($subject, $params), returns [method, url].
+     * @param Closure|null $inject Receives ($subject, $params) after the span is open and returns the
+     *                             call's parameters carrying the trace headers, or null to leave them
+     *                             untouched (for clients whose headers live on the subject).
      * @return void
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
-    private static function hookOutboundCall(string $className, string $methodName, Closure $describe): void
-    {
+    private static function hookOutboundCall(
+        string $className,
+        string $methodName,
+        Closure $describe,
+        ?Closure $inject = null
+    ): void {
         hook(
             $className,
             $methodName,
@@ -270,10 +385,13 @@ class HttpClientInstrumentation extends AbstractInstrumentation
                 string  $function,
                 ?string $filename,
                 ?int    $lineno,
-            ) use ($describe): void {
+            ) use ($describe, $inject): ?array {
                 [$method, $url] = $describe($subject, $params);
 
                 self::startOutboundSpan((string)$method, (string)$url, $function, $class, $filename, $lineno);
+
+                /* Must run after the span is open - it is that span the downstream service continues. */
+                return $inject === null ? null : $inject($subject, $params);
             },
             static function (
                 object     $subject,
@@ -321,6 +439,47 @@ class HttpClientInstrumentation extends AbstractInstrumentation
             ->setAttribute(TraceAttributes::URL_PATH, $path);
 
         self::startSpanAndAttachToContext($builder);
+    }
+
+    /**
+     * The trace context of the span that is currently open, as headers to put on the wire.
+     *
+     * This is what makes an outbound call part of the same distributed trace instead of the start of
+     * a new one on the far side. Which headers appear is the propagator's business, not ours -
+     * OTEL_PROPAGATORS decides between tracecontext, baggage, b3 and the rest.
+     *
+     * @return array<string, string>
+     */
+    private static function traceHeaders(): array
+    {
+        $carrier = [];
+        Globals::propagator()->inject($carrier, ArrayAccessGetterSetter::getInstance(), Context::getCurrent());
+
+        return array_filter($carrier, 'is_string');
+    }
+
+    /**
+     * Whether a carrier already carries any header the propagator would write.
+     *
+     * @param array<mixed> $headers
+     * @return bool
+     */
+    private static function hasTraceHeader(array $headers): bool
+    {
+        $fields = array_map('strtolower', Globals::propagator()->fields());
+        if (!$fields) {
+            return false;
+        }
+
+        foreach ($headers as $key => $value) {
+            /* Assoc entries key by name; list entries are raw "Name: value" lines. */
+            $name = is_int($key) ? strtok((string)$value, ':') : (string)$key;
+            if (is_string($name) && in_array(strtolower(trim($name)), $fields, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
