@@ -155,7 +155,15 @@ Once installed, this package automatically instruments the following Magento are
 | GraphQL Query | `Magento\Framework\GraphQl\Query\QueryProcessor` | `process()` |
 | GraphQL Resolver | `Magento\Framework\GraphQl\Query\ResolverInterface` | `resolve()` |
 | Backend Admin | `Magento\Backend\App\AbstractAction` | `dispatch()` |
-| HTTP Client | `GuzzleHttp\Client` | `send()` |
+| HTTP Client (Guzzle) | `GuzzleHttp\Client` | `send()` |
+| HTTP Client (Magento) | `Magento\Framework\HTTP\ClientInterface` | `get()`, `post()` |
+| HTTP Client (Laminas) | `Magento\Framework\HTTP\LaminasClient` | `send()` |
+| HTTP Client (async) | `Magento\Framework\HTTP\AsyncClientInterface` | `request()` |
+| HTTP Transport | `Magento\Framework\HTTP\Adapter\Curl` | `write()`, `read()` |
+
+> Outbound spans record the **host and path only** — query strings routinely carry API keys and tokens.
+> The Laminas client is the one that matters for checkout: PayPal Payflow, USPS, DHL and the currency
+> imports all go through it, and it shares no interface with the other clients.
 
 ### Database
 
