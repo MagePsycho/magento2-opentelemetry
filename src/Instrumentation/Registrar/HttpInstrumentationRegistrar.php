@@ -11,6 +11,7 @@ declare(strict_types=1);
 namespace MagePsycho\OpenTelemetry\Instrumentation\Registrar;
 
 use MagePsycho\OpenTelemetry\Instrumentation\Http\BackendInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Http\FrontendInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\Http\GraphQlInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\Http\RestInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\Http\HttpClientInstrumentation;
@@ -26,6 +27,7 @@ class HttpInstrumentationRegistrar implements InstrumentationRegistrarInterface
     {
         RestInstrumentation::register();
         BackendInstrumentation::register();
+        FrontendInstrumentation::register();
         GraphQlInstrumentation::register();
         HttpClientInstrumentation::register();
     }

@@ -16,7 +16,6 @@ use Magento\Quote\Model\QuoteRepository;
 use Magento\Customer\Model\ResourceModel\CustomerRepository;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class RepositoryInstrumentation extends AbstractInstrumentation
 {
@@ -52,7 +51,7 @@ class RepositoryInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentProductRepositoryGet(): void
     {
-        hook(
+        self::hookOutermost(
             ProductRepository::class,
             'get',
             static function (
@@ -89,7 +88,7 @@ class RepositoryInstrumentation extends AbstractInstrumentation
 
     private static function instrumentProductRepositoryGetById(): void
     {
-        hook(
+        self::hookOutermost(
             ProductRepository::class,
             'getById',
             static function (
@@ -125,7 +124,7 @@ class RepositoryInstrumentation extends AbstractInstrumentation
 
     private static function instrumentCategoryRepositoryGet(): void
     {
-        hook(
+        self::hookOutermost(
             CategoryRepository::class,
             'get',
             static function (
@@ -161,7 +160,7 @@ class RepositoryInstrumentation extends AbstractInstrumentation
 
     private static function instrumentQuoteRepositoryGet(): void
     {
-        hook(
+        self::hookOutermost(
             QuoteRepository::class,
             'get',
             static function (
@@ -197,7 +196,7 @@ class RepositoryInstrumentation extends AbstractInstrumentation
 
     private static function instrumentQuoteRepositoryGetActive(): void
     {
-        hook(
+        self::hookOutermost(
             QuoteRepository::class,
             'getActive',
             static function (
@@ -232,7 +231,7 @@ class RepositoryInstrumentation extends AbstractInstrumentation
 
     private static function instrumentCustomerRepositoryGetById(): void
     {
-        hook(
+        self::hookOutermost(
             CustomerRepository::class,
             'getById',
             static function (
@@ -268,7 +267,7 @@ class RepositoryInstrumentation extends AbstractInstrumentation
 
     private static function instrumentCustomerRepositoryGet(): void
     {
-        hook(
+        self::hookOutermost(
             CustomerRepository::class,
             'get',
             static function (

@@ -14,7 +14,6 @@ use Magento\InventorySales\Model\GetProductSalableQty;
 use Magento\CatalogInventory\Observer\QuantityValidatorObserver;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class InventoryInstrumentation extends AbstractInstrumentation
 {
@@ -45,7 +44,7 @@ class InventoryInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentGetProductSalableQty(): void
     {
-        hook(
+        self::hookOutermost(
             GetProductSalableQty::class,
             'execute',
             static function (
@@ -84,7 +83,7 @@ class InventoryInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentQuantityValidatorObserver(): void
     {
-        hook(
+        self::hookOutermost(
             QuantityValidatorObserver::class,
             'execute',
             static function (

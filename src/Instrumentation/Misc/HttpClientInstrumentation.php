@@ -13,7 +13,6 @@ namespace MagePsycho\OpenTelemetry\Instrumentation\Misc;
 use GuzzleHttp\Client;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class HttpClientInstrumentation extends AbstractInstrumentation
 {
@@ -43,7 +42,7 @@ class HttpClientInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentGuzzleClientSend(): void
     {
-        hook(
+        self::hookOutermost(
             Client::class,
             'send',
             static function (

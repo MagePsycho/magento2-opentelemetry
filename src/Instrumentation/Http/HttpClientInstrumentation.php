@@ -24,7 +24,6 @@ use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\Propagation\ArrayAccessGetterSetter;
 use OpenTelemetry\SemConv\TraceAttributes;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 /**
  * Spans for every outbound HTTP call Magento can make.
@@ -287,7 +286,7 @@ class HttpClientInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentCurlAdapter(): void
     {
-        hook(
+        self::hookOutermost(
             CurlAdapter::class,
             'write',
             static function (object $subject, array $params): ?array {
@@ -314,7 +313,7 @@ class HttpClientInstrumentation extends AbstractInstrumentation
             null,
         );
 
-        hook(
+        self::hookOutermost(
             CurlAdapter::class,
             'read',
             static function (
@@ -375,7 +374,7 @@ class HttpClientInstrumentation extends AbstractInstrumentation
         Closure $describe,
         ?Closure $inject = null
     ): void {
-        hook(
+        self::hookOutermost(
             $className,
             $methodName,
             static function (

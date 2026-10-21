@@ -21,7 +21,6 @@ use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\Context\Context;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class BackendInstrumentation extends AbstractInstrumentation
 {
@@ -51,7 +50,7 @@ class BackendInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentBackendDispatch(): void
     {
-        hook(
+        self::hookOutermost(
             BackendAbstractAction::class,
             'dispatch',
             static function (

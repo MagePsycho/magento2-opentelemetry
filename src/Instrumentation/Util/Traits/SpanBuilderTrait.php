@@ -46,7 +46,8 @@ trait SpanBuilderTrait
             ->tracer()
             ->spanBuilder($spanName)
             ->setAttribute(TraceAttributes::CODE_FUNCTION_NAME, $function)
-            ->setAttribute(TraceAttributes::CODE_NAMESPACE, $class)
+            // The generated Interceptor is plumbing; report the class it wraps.
+            ->setAttribute(TraceAttributes::CODE_NAMESPACE, preg_replace('/\\\\Interceptor$/', '', $class))
             ->setAttribute(TraceAttributes::CODE_FILEPATH, $filename)
             ->setAttribute(TraceAttributes::CODE_LINE_NUMBER, $lineno);
     }

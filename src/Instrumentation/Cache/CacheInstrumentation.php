@@ -15,7 +15,6 @@ use Magento\CacheInvalidate\Observer\FlushAllCacheObserver;
 use Magento\PageCache\Observer\FlushFormKey\Interceptor as FlushFormKeyInterceptor;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class CacheInstrumentation extends AbstractInstrumentation
 {
@@ -51,7 +50,7 @@ class CacheInstrumentation extends AbstractInstrumentation
     private static function instrumentCacheInvalidation(): void
     {
         foreach (self::INSTRUMENTED_CLASSES as $class) {
-            hook(
+            self::hookOutermost(
                 $class,
                 'execute',
                 static function (

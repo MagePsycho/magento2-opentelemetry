@@ -15,7 +15,6 @@ namespace MagePsycho\OpenTelemetry\Instrumentation\Entity;
 use OpenTelemetry\API\Trace\SpanKind;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class EavEntityInstrumentation extends AbstractInstrumentation
 {
@@ -58,7 +57,7 @@ class EavEntityInstrumentation extends AbstractInstrumentation
      */
     private static function hookEavEntityOperation(string $class, string $method): void
     {
-        hook(
+        self::hookOutermost(
             $class,
             $method,
             static function (

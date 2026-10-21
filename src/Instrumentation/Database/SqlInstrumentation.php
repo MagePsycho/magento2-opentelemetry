@@ -20,7 +20,6 @@ use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\Context\Context;
 use OpenTelemetry\SemConv\TraceAttributes;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class SqlInstrumentation extends AbstractInstrumentation
 {
@@ -53,7 +52,7 @@ class SqlInstrumentation extends AbstractInstrumentation
     {
         $limiter = SpanLimiter::getInstance();
         $limiter->setLimits(['default' => self::SQL_QUERY_SPAN_LIMIT]);
-        hook(
+        self::hookOutermost(
             Mysql::class,
             'query',
             static function (

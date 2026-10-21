@@ -13,7 +13,6 @@ namespace MagePsycho\OpenTelemetry\Instrumentation\Misc;
 use Magento\Framework\Model\ResourceModel\Db\AbstractDb;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class AbstractDbInstrumentation extends AbstractInstrumentation
 {
@@ -45,7 +44,7 @@ class AbstractDbInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentDbLoad(): void
     {
-        hook(
+        self::hookOutermost(
             AbstractDb::class,
             'load',
             static function (
@@ -86,7 +85,7 @@ class AbstractDbInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentDbSave(): void
     {
-        hook(
+        self::hookOutermost(
             AbstractDb::class,
             'save',
             static function (
@@ -127,7 +126,7 @@ class AbstractDbInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentDbDelete(): void
     {
-        hook(
+        self::hookOutermost(
             AbstractDb::class,
             'delete',
             static function (

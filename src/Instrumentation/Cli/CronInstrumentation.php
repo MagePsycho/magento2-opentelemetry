@@ -13,7 +13,6 @@ namespace MagePsycho\OpenTelemetry\Instrumentation\Cli;
 use Magento\Cron\Observer\ProcessCronQueueObserver;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class CronInstrumentation extends AbstractInstrumentation
 {
@@ -43,7 +42,7 @@ class CronInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentCronRun(): void
     {
-        hook(
+        self::hookOutermost(
             ProcessCronQueueObserver::class,
             'tryRunJob',
             static function (

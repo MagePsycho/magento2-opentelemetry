@@ -18,6 +18,7 @@ use OpenTelemetry\API\Trace\LocalRootSpan;
 use OpenTelemetry\API\Trace\SpanInterface;
 use MagePsycho\OpenTelemetry\Instrumentation\Util\Traits\SpanBuilderTrait;
 use MagePsycho\OpenTelemetry\Instrumentation\Util\Traits\AttributeSanitizerTrait;
+use function OpenTelemetry\Instrumentation\hook;
 
 /**
  * AbstractInstrumentation provides core tracing functionalities for OpenTelemetry integration in Magento.
@@ -44,6 +45,79 @@ abstract class AbstractInstrumentation
      * @return void
      */
     abstract public static function register(): void;
+
+    /**
+     * Open calls per hook and subject, so a hook fires its callbacks once per call however many frames it spans.
+     *
+     * @var array<string, int>
+     */
+    private static array $callDepth = [];
+
+    /**
+     * Hook a method, running the callbacks only for the outermost frame of each call.
+     *
+     * A hook matches the hooked class and every subclass. Magento generates an Interceptor subclass
+     * for any class carrying a plugin, and the Interceptor overrides the method only to call
+     * parent::method() - so a plain hook fires twice per call, once in each frame, and every span
+     * comes out doubled with the copy nested inside the original.
+     *
+     * The outer frame is the one kept: its span covers the plugins, which is what the caller waited for.
+     *
+     * Not for methods that legitimately re-enter on the same object, such as event dispatch: the
+     * nested calls would be swallowed along with the Interceptor frame.
+     *
+     * @param string $class
+     * @param string $method
+     * @param \Closure|null $pre
+     * @param \Closure|null $post
+     * @return void
+     */
+    protected static function hookOutermost(
+        string $class,
+        string $method,
+        ?\Closure $pre = null,
+        ?\Closure $post = null
+    ): void {
+        /*
+         * No return types on either wrapper: the extension only replaces the hooked method's return
+         * value when the post callback declares one, and these must stay transparent.
+         */
+        hook(
+            $class,
+            $method,
+            static function (?object $subject, array $params, ...$rest) use ($class, $method, $pre) {
+                $key = self::callKey($subject, $class, $method);
+                self::$callDepth[$key] = (self::$callDepth[$key] ?? 0) + 1;
+                if (self::$callDepth[$key] > 1 || $pre === null) {
+                    return null;
+                }
+
+                return $pre($subject, $params, ...$rest);
+            },
+            static function (?object $subject, array $params, ...$rest) use ($class, $method, $post) {
+                $key = self::callKey($subject, $class, $method);
+                $depth = (self::$callDepth[$key] ?? 1) - 1;
+                if ($depth > 0) {
+                    self::$callDepth[$key] = $depth;
+                    return null;
+                }
+                unset(self::$callDepth[$key]);
+
+                return $post === null ? null : $post($subject, $params, ...$rest);
+            },
+        );
+    }
+
+    /**
+     * @param object|null $subject
+     * @param string $class
+     * @param string $method
+     * @return string
+     */
+    private static function callKey(?object $subject, string $class, string $method): string
+    {
+        return ($subject === null ? '' : spl_object_id($subject)) . '|' . $class . '::' . $method;
+    }
 
     /**
      * Updates the name of the root span.

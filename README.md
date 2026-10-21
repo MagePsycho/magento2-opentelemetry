@@ -16,7 +16,7 @@ OpenTelemetry integration package for Magento 2 applications with complete obser
 
 A Composer library that adds [OpenTelemetry](https://opentelemetry.io/) tracing to Magento 2. It hooks into Magento core classes at runtime to automatically create spans for:
 
-- **HTTP requests** — REST API, GraphQL, Backend admin, HTTP client
+- **HTTP requests** — storefront, REST API, GraphQL, Backend admin, HTTP client
 - **Database** — SQL query tracing
 - **Cache** — Page cache, Redis, Varnish
 - **CLI** — Commands, cron jobs, indexer operations
@@ -96,7 +96,14 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://[COLLECTOR-IP]:4318
 OTEL_PROPAGATORS=baggage,tracecontext
 ;OTEL_PHP_DISABLED_INSTRUMENTATIONS=magento2
 ;OTEL_PHP_EXCLUDED_URLS="health_check.php,get.php"
+;OTEL_MAGENTO_FRONTEND_INSTRUMENTATION=true
+;OTEL_MAGENTO_MISC_INSTRUMENTATION=true
 ```
+
+Web requests are only traced under `/rest/`, `/admin/`, `/backend/` and `/graphql` by default. Set
+`OTEL_MAGENTO_FRONTEND_INSTRUMENTATION=true` to trace storefront pages as well; `get.php`, `static.php`,
+`health_check.php` and `cron.php` stay excluded either way. Both `OTEL_MAGENTO_*` flags are read from the
+environment or the `.ini`, like the settings above.
 
 ### 3. Verify the Extension
 
@@ -173,12 +180,17 @@ Once installed, this package automatically instruments the following Magento are
 | GraphQL Dispatch | `Magento\GraphQl\Controller\GraphQl\Interceptor` | `dispatch()` |
 | GraphQL Query | `Magento\Framework\GraphQl\Query\QueryProcessor` | `process()` |
 | GraphQL Resolver | `Magento\Framework\GraphQl\Query\ResolverInterface` | `resolve()` |
+| Storefront | `Magento\Framework\App\FrontController` | `dispatch()` |
 | Backend Admin | `Magento\Backend\App\AbstractAction` | `dispatch()` |
 | HTTP Client (Guzzle) | `GuzzleHttp\Client` | `send()` |
 | HTTP Client (Magento) | `Magento\Framework\HTTP\ClientInterface` | `get()`, `post()` |
 | HTTP Client (Laminas) | `Magento\Framework\HTTP\LaminasClient` | `send()` |
 | HTTP Client (async) | `Magento\Framework\HTTP\AsyncClientInterface` | `request()` |
 | HTTP Transport | `Magento\Framework\HTTP\Adapter\Curl` | `write()`, `read()` |
+
+> Storefront spans are named after the controller that served the request, not the URL:
+> `Frontend: /catalog/category/view` covers every category page, rewritten URLs included.
+> Requires `OTEL_MAGENTO_FRONTEND_INSTRUMENTATION=true`.
 
 > Outbound spans record the **host and path only** — query strings routinely carry API keys and tokens.
 > The Laminas client is the one that matters for checkout: PayPal Payflow, USPS, DHL and the currency
@@ -234,7 +246,7 @@ Once installed, this package automatically instruments the following Magento are
 
 ### Business Logic (Misc)
 
-> **Opt-in.** This group is **disabled by default** — it produces the highest-volume spans (per-rule sales-rule evaluation, repository calls, pricing/tax calculation, address totals, etc.) and is best enabled selectively. Activate it by setting `OTEL_MAGENTO_MISC_INSTRUMENTATION=true` in your environment (`.env`, `docker-compose.yml`, nginx `fastcgi_param`, `php-fpm` pool, or `export` for CLI).
+> **Opt-in.** This group is **disabled by default** — it produces the highest-volume spans (per-rule sales-rule evaluation, repository calls, pricing/tax calculation, address totals, etc.) and is best enabled selectively. Activate it by setting `OTEL_MAGENTO_MISC_INSTRUMENTATION=true` in your `.ini` or environment (`.env`, `docker-compose.yml`, nginx `fastcgi_param`, `php-fpm` pool, or `export` for CLI).
 
 | Instrumentation | Hooked Class | Method |
 |-----------------|-------------|--------|

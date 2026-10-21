@@ -14,7 +14,6 @@ use Magento\Framework\Console\Cli;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use Symfony\Component\Console\Command\Command;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class CliInstrumentation extends AbstractInstrumentation
 {
@@ -47,7 +46,7 @@ class CliInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentCliRun(): void
     {
-        hook(
+        self::hookOutermost(
             Cli::class,
             'doRun',
             static function (
@@ -86,7 +85,7 @@ class CliInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentCommandRun(): void
     {
-        hook(
+        self::hookOutermost(
             Command::class,
             'run',
             static function (

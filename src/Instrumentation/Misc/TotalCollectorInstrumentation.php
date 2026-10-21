@@ -16,7 +16,6 @@ use Magento\Quote\Model\Quote\Address\Total\Collector as AddressTotalCollector;
 use Magento\SalesRule\Model\Rule\Action\Discount\AbstractDiscount;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class TotalCollectorInstrumentation extends AbstractInstrumentation
 {
@@ -49,7 +48,7 @@ class TotalCollectorInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentAddressTotalsCollector(): void
     {
-        hook(
+        self::hookOutermost(
             TotalsCollector::class,
             'collectAddressTotals',
             static function (
@@ -88,7 +87,7 @@ class TotalCollectorInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentAbstractTotalCollect(): void
     {
-        hook(
+        self::hookOutermost(
             AbstractTotal::class,
             'collect',
             static function (
@@ -127,7 +126,7 @@ class TotalCollectorInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentAddressTotalCollector(): void
     {
-        hook(
+        self::hookOutermost(
             AddressTotalCollector::class,
             'collect',
             static function (
@@ -166,7 +165,7 @@ class TotalCollectorInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentAbstractDiscountCalculate(): void
     {
-        hook(
+        self::hookOutermost(
             AbstractDiscount::class,
             'calculate',
             static function (

@@ -14,7 +14,6 @@ use Magento\Catalog\Model\Product\Type\Price;
 use Magento\Tax\Model\Calculation;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class PricingInstrumentation extends AbstractInstrumentation
 {
@@ -46,7 +45,7 @@ class PricingInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentGetFinalPrice(): void
     {
-        hook(
+        self::hookOutermost(
             Price::class,
             'getFinalPrice',
             static function (
@@ -81,7 +80,7 @@ class PricingInstrumentation extends AbstractInstrumentation
 
     private static function instrumentGetTierPrice(): void
     {
-        hook(
+        self::hookOutermost(
             Price::class,
             '_applyTierPrice',
             static function (
@@ -120,7 +119,7 @@ class PricingInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentGetTaxRate(): void
     {
-        hook(
+        self::hookOutermost(
             Calculation::class,
             'getRate',
             static function (

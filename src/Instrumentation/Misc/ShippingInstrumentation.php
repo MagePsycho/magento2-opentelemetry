@@ -13,7 +13,6 @@ namespace MagePsycho\OpenTelemetry\Instrumentation\Misc;
 use Magento\Shipping\Model\Shipping;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class ShippingInstrumentation extends AbstractInstrumentation
 {
@@ -43,7 +42,7 @@ class ShippingInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentGetProductSalableQty(): void
     {
-        hook(
+        self::hookOutermost(
             Shipping::class,
             'collectRates',
             static function (

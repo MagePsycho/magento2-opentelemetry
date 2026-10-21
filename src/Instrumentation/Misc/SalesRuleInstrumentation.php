@@ -13,7 +13,6 @@ namespace MagePsycho\OpenTelemetry\Instrumentation\Misc;
 use Magento\SalesRule\Model\Validator;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class SalesRuleInstrumentation extends AbstractInstrumentation
 {
@@ -43,7 +42,7 @@ class SalesRuleInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentValidatorProcess(): void
     {
-        hook(
+        self::hookOutermost(
             Validator::class,
             'process',
             static function (

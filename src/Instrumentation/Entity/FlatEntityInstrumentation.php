@@ -15,7 +15,6 @@ namespace MagePsycho\OpenTelemetry\Instrumentation\Entity;
 use OpenTelemetry\API\Trace\SpanKind;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class FlatEntityInstrumentation extends AbstractInstrumentation
 {
@@ -74,7 +73,7 @@ class FlatEntityInstrumentation extends AbstractInstrumentation
      */
     private static function hookFlatEntityOperation(string $class, string $method): void
     {
-        hook(
+        self::hookOutermost(
             $class,
             $method,
             static function (
@@ -134,7 +133,7 @@ class FlatEntityInstrumentation extends AbstractInstrumentation
      */
     private static function hookFlatCollectionLoadOperation(string $class): void
     {
-        hook(
+        self::hookOutermost(
             $class,
             'load',
             static function (

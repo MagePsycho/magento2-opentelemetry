@@ -16,7 +16,6 @@ use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\Context\Context;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class VarnishInstrumentation extends AbstractInstrumentation
 {
@@ -46,7 +45,7 @@ class VarnishInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentVarnishPurgeCache(): void
     {
-        hook(
+        self::hookOutermost(
             PurgeCache::class,
             'sendPurgeRequest',
             static function (

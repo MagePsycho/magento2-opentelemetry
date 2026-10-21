@@ -16,7 +16,6 @@ use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\SemConv\TraceAttributes;
 use OpenTelemetry\SemConv\TraceAttributeValues;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class RedisInstrumentation extends AbstractInstrumentation
 {
@@ -52,7 +51,7 @@ class RedisInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentLoad(): void
     {
-        hook(
+        self::hookOutermost(
             Redis::class,
             'load',
             static function (
@@ -100,7 +99,7 @@ class RedisInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentTest(): void
     {
-        hook(
+        self::hookOutermost(
             Redis::class,
             'test',
             static function (
@@ -144,7 +143,7 @@ class RedisInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentSave(): void
     {
-        hook(
+        self::hookOutermost(
             Redis::class,
             'save',
             static function (
@@ -194,7 +193,7 @@ class RedisInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentRemove(): void
     {
-        hook(
+        self::hookOutermost(
             Redis::class,
             'remove',
             static function (
@@ -238,7 +237,7 @@ class RedisInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentClean(): void
     {
-        hook(
+        self::hookOutermost(
             Redis::class,
             'clean',
             static function (

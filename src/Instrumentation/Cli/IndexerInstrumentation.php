@@ -17,7 +17,6 @@ use Magento\Indexer\Model\Processor;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use OpenTelemetry\API\Trace\SpanKind;
 use Throwable;
-use function OpenTelemetry\Instrumentation\hook;
 
 class IndexerInstrumentation extends AbstractInstrumentation
 {
@@ -50,7 +49,7 @@ class IndexerInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentReindexAllInvalid(): void
     {
-        hook(
+        self::hookOutermost(
             Processor::class,
             'reindexAllInvalid',
             static function (
@@ -89,7 +88,7 @@ class IndexerInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentMviewExecute(): void
     {
-        hook(
+        self::hookOutermost(
             View::class,
             'executeAction',
             static function (
@@ -139,7 +138,7 @@ class IndexerInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentActionExecute(): void
     {
-        hook(
+        self::hookOutermost(
             ActionInterface::class,
             'execute',
             static function (
@@ -184,7 +183,7 @@ class IndexerInstrumentation extends AbstractInstrumentation
      */
     private static function instrumentClearChangeLog(): void
     {
-        hook(
+        self::hookOutermost(
             ChangelogInterface::class,
             'clear',
             static function (
