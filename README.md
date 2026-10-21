@@ -189,7 +189,8 @@ Once installed, this package automatically instruments the following Magento are
 | HTTP Transport | `Magento\Framework\HTTP\Adapter\Curl` | `write()`, `read()` |
 
 > Storefront spans are named after the controller that served the request, not the URL:
-> `Frontend: /catalog/category/view` covers every category page, rewritten URLs included.
+> `Frontend: GET /catalog/category/view` covers every category page, rewritten URLs included. The URL
+> itself is on `url.path`, and the product, category or CMS page id on `magento.entity.id`.
 > Requires `OTEL_MAGENTO_FRONTEND_INSTRUMENTATION=true`.
 
 > Outbound spans record the **host and path only** — query strings routinely carry API keys and tokens.

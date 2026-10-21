@@ -120,11 +120,23 @@ class FrontendInstrumentation extends AbstractInstrumentation
 
                 $request = $params[0] ?? null;
                 if ($request instanceof HttpRequest && $route = self::routePath($request)) {
-                    // Low cardinality, so every PLP groups as "Frontend: /catalog/category/view".
-                    self::updateRootSpanName(sprintf('%s %s', self::SPAN_NAME_PREFIX, $route));
-                    $span->updateName(sprintf('%s %s', self::SPAN_NAME_PREFIX, $route));
+                    /*
+                     * Low cardinality, so every PLP groups as "Frontend: GET /catalog/category/view".
+                     * The URL itself stays on url.path, and the entity behind it on magento.entity.id.
+                     */
+                    $spanName = sprintf(
+                        '%s %s %s',
+                        self::SPAN_NAME_PREFIX,
+                        $request->getMethod() ?: 'UNKNOWN',
+                        $route
+                    );
+                    self::updateRootSpanName($spanName);
+                    $span->updateName($spanName);
                     $span->setAttribute('http.route', $route);
                     $span->setAttribute('magento.full_action_name', $request->getFullActionName());
+                    if ($entityId = self::entityId($request)) {
+                        $span->setAttribute('magento.entity.id', $entityId);
+                    }
                 }
 
                 if ($exception) {
@@ -157,6 +169,28 @@ class FrontendInstrumentation extends AbstractInstrumentation
         }
 
         return '/' . implode('/', $parts);
+    }
+
+    /**
+     * The id of the entity the controller served - product, category or CMS page.
+     *
+     * Read from the routed parameters, which is where a URL rewrite leaves it: the product behind
+     * /mens-plantsman-organic-cotton-corduroy-blazer arrives as id=1234 on catalog/product/view.
+     * Only numeric values, so a stray non-id "id" parameter cannot inflate the attribute.
+     *
+     * @param HttpRequest $request
+     * @return string|null
+     */
+    private static function entityId(HttpRequest $request): ?string
+    {
+        foreach (['id', 'page_id'] as $param) {
+            $value = $request->getParam($param);
+            if (is_scalar($value) && ctype_digit((string)$value)) {
+                return (string)$value;
+            }
+        }
+
+        return null;
     }
 
     /**
