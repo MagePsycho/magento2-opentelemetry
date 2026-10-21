@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use MagePsycho\OpenTelemetry\Instrumentation\Core\LogInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\InstrumentationGuard;
 use MagePsycho\OpenTelemetry\Instrumentation\Registrar\CacheInstrumentationRegistrar;
 use MagePsycho\OpenTelemetry\Instrumentation\Registrar\CliInstrumentationRegistrar;
@@ -26,4 +27,10 @@ EntityInstrumentationRegistrar::register();
 // Set OTEL_MAGENTO_MISC_INSTRUMENTATION=true in your environment or php.ini to activate.
 if (InstrumentationGuard::isFlagEnabled(InstrumentationGuard::MISC_INSTRUMENTATION_FLAG)) {
     MiscInstrumentationRegistrar::register();
+}
+
+// Optional: trace ids in log records, and logged errors as span events.
+// Set OTEL_MAGENTO_LOG_INSTRUMENTATION=true in your environment or php.ini to activate.
+if (InstrumentationGuard::isFlagEnabled(InstrumentationGuard::LOG_INSTRUMENTATION_FLAG)) {
+    LogInstrumentation::register();
 }

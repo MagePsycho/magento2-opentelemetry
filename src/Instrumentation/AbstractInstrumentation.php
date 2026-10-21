@@ -14,8 +14,13 @@ declare(strict_types=1);
 
 namespace MagePsycho\OpenTelemetry\Instrumentation;
 
+use MagePsycho\OpenTelemetry\Instrumentation\Util\RequestStats;
+use MagePsycho\OpenTelemetry\Instrumentation\Util\SpanLimiter;
 use OpenTelemetry\API\Trace\LocalRootSpan;
+use OpenTelemetry\API\Trace\Span;
+use OpenTelemetry\API\Trace\SpanBuilderInterface;
 use OpenTelemetry\API\Trace\SpanInterface;
+use OpenTelemetry\Context\Context;
 use MagePsycho\OpenTelemetry\Instrumentation\Util\Traits\SpanBuilderTrait;
 use MagePsycho\OpenTelemetry\Instrumentation\Util\Traits\AttributeSanitizerTrait;
 use function OpenTelemetry\Instrumentation\hook;
@@ -54,6 +59,13 @@ abstract class AbstractInstrumentation
     private static array $callDepth = [];
 
     /**
+     * Hooks registered through hookOutermost(), so two on the same method keep separate depths.
+     *
+     * @var int
+     */
+    private static int $hookCount = 0;
+
+    /**
      * Hook a method, running the callbacks only for the outermost frame of each call.
      *
      * A hook matches the hooked class and every subclass. Magento generates an Interceptor subclass
@@ -82,11 +94,12 @@ abstract class AbstractInstrumentation
          * No return types on either wrapper: the extension only replaces the hooked method's return
          * value when the post callback declares one, and these must stay transparent.
          */
+        $hookId = ++self::$hookCount;
         hook(
             $class,
             $method,
-            static function (?object $subject, array $params, ...$rest) use ($class, $method, $pre) {
-                $key = self::callKey($subject, $class, $method);
+            static function (?object $subject, array $params, ...$rest) use ($hookId, $class, $method, $pre) {
+                $key = self::callKey($hookId, $subject, $class, $method);
                 self::$callDepth[$key] = (self::$callDepth[$key] ?? 0) + 1;
                 if (self::$callDepth[$key] > 1 || $pre === null) {
                     return null;
@@ -94,8 +107,8 @@ abstract class AbstractInstrumentation
 
                 return $pre($subject, $params, ...$rest);
             },
-            static function (?object $subject, array $params, ...$rest) use ($class, $method, $post) {
-                $key = self::callKey($subject, $class, $method);
+            static function (?object $subject, array $params, ...$rest) use ($hookId, $class, $method, $post) {
+                $key = self::callKey($hookId, $subject, $class, $method);
                 $depth = (self::$callDepth[$key] ?? 1) - 1;
                 if ($depth > 0) {
                     self::$callDepth[$key] = $depth;
@@ -109,14 +122,62 @@ abstract class AbstractInstrumentation
     }
 
     /**
+     * @param int $hookId
      * @param object|null $subject
      * @param string $class
      * @param string $method
      * @return string
      */
-    private static function callKey(?object $subject, string $class, string $method): string
+    private static function callKey(int $hookId, ?object $subject, string $class, string $method): string
     {
-        return ($subject === null ? '' : spl_object_id($subject)) . '|' . $class . '::' . $method;
+        return $hookId . '|' . ($subject === null ? '' : spl_object_id($subject)) . '|' . $class . '::' . $method;
+    }
+
+    /**
+     * Start a unit of work - a queue message, a cron job - as the root of a trace of its own.
+     *
+     * A long-running process does many of these one after another. Nested under the process span they
+     * would all land in one trace that is only exported when the process exits, and the span limits
+     * would be spent on the first few. Instead each gets its own trace, a link back to the process span,
+     * and fresh span limits and request totals; the process gets its own back in endUnitOfWork().
+     *
+     * @param SpanBuilderInterface $builder
+     * @return array State to hand to endUnitOfWork().
+     */
+    protected static function startUnitOfWork(SpanBuilderInterface $builder): array
+    {
+        $processContext = Span::getCurrent()->getContext();
+        if ($processContext->isValid()) {
+            $builder->addLink($processContext);
+        }
+
+        $limiter = SpanLimiter::getInstance();
+        $state = ['limiter' => $limiter->snapshot(), 'stats' => RequestStats::begin()];
+        $limiter->reset();
+
+        self::startSpanAndAttachToContext($builder, Context::getRoot());
+
+        return $state;
+    }
+
+    /**
+     * End a span opened by startUnitOfWork(), with its totals, and go back to the process's own.
+     *
+     * @param array $state What startUnitOfWork() returned.
+     * @param \Throwable|null $exception
+     * @param array $spanAttributes
+     * @return void
+     */
+    protected static function endUnitOfWork(array $state, ?\Throwable $exception, array $spanAttributes = []): void
+    {
+        $span = self::getActiveSpan();
+        if ($span) {
+            RequestStats::applyTo($span);
+        }
+        self::endSpan($exception, $spanAttributes);
+
+        RequestStats::end($state['stats']);
+        SpanLimiter::getInstance()->restore($state['limiter']);
     }
 
     /**

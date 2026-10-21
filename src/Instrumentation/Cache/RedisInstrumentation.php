@@ -11,7 +11,9 @@ declare(strict_types=1);
 namespace MagePsycho\OpenTelemetry\Instrumentation\Cache;
 
 use Magento\Framework\Cache\Backend\Redis;
+use Magento\Framework\Cache\Frontend\Adapter\Symfony as SymfonyCacheAdapter;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Util\RequestStats;
 use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\SemConv\TraceAttributes;
 use OpenTelemetry\SemConv\TraceAttributeValues;
@@ -38,6 +40,7 @@ class RedisInstrumentation extends AbstractInstrumentation
     {
         // Note: only uncomment if required
         #self::instrumentLoad();
+        self::countLoads();
         self::instrumentTest();
         self::instrumentSave();
         self::instrumentClean();
@@ -88,9 +91,34 @@ class RedisInstrumentation extends AbstractInstrumentation
                 /*$spanAttributes = [
                     'db.redis.load.cacheData' => self::saferStringEncode($returnValue)
                 ];*/
-                self::endSpan($exception);
+                self::endSpan($exception, ['magento.cache.hit' => $returnValue !== false]);
             },
         );
+    }
+
+    /**
+     * Count loads and hits for the request totals, without a span per load.
+     *
+     * A page makes hundreds of cache loads; spans for each are what instrumentLoad() is kept off for,
+     * but the hit ratio is still worth having on the root span. Magento 2.4.9 replaced the Zend cache
+     * backends with Symfony Cache, so the loads are counted on whichever of the two this version uses.
+     *
+     * @return void
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     */
+    private static function countLoads(): void
+    {
+        foreach ([Redis::class, SymfonyCacheAdapter::class] as $cacheClass) {
+            self::hookOutermost(
+                $cacheClass,
+                'load',
+                null,
+                // No return type, so the cached data is passed through untouched.
+                static function (object $subject, array $params, mixed $returnValue, ?Throwable $exception) {
+                    RequestStats::recordCacheLoad($exception === null && $returnValue !== false);
+                },
+            );
+        }
     }
 
     /**

@@ -98,12 +98,14 @@ OTEL_PROPAGATORS=baggage,tracecontext
 ;OTEL_PHP_EXCLUDED_URLS="health_check.php,get.php"
 ;OTEL_MAGENTO_FRONTEND_INSTRUMENTATION=true
 ;OTEL_MAGENTO_MISC_INSTRUMENTATION=true
+;OTEL_MAGENTO_LOG_INSTRUMENTATION=true
 ```
 
 Web requests are only traced under `/rest/`, `/admin/`, `/backend/` and `/graphql` by default. Set
 `OTEL_MAGENTO_FRONTEND_INSTRUMENTATION=true` to trace storefront pages as well; `get.php`, `static.php`,
-`health_check.php` and `cron.php` stay excluded either way. Both `OTEL_MAGENTO_*` flags are read from the
-environment or the `.ini`, like the settings above.
+`health_check.php` and `cron.php` stay excluded either way. `OTEL_MAGENTO_LOG_INSTRUMENTATION=true` turns
+on log and trace correlation (see [Request Totals and Logs](#-request-totals-and-logs)). All `OTEL_MAGENTO_*`
+flags are read from the environment or the `.ini`, like the settings above.
 
 ### 3. Verify the Extension
 
@@ -170,6 +172,14 @@ Once installed, this package automatically instruments the following Magento are
 | Exception Handling | `Magento\Framework\App\Http` | `catchException()` |
 | Profiler | `Magento\Framework\Profiler` | `start()`, `stop()` |
 | Event Observers | `Magento\Framework\Event\InvokerInterface` | `dispatch()` |
+| Named Locks | `Magento\Framework\Lock\LockManagerInterface` | `lock()`, `unlock()` |
+| Lock-Guarded Cache Loads | `Magento\Framework\Cache\LockGuardedCacheLoader` | `lockedLoadData()` |
+| Log Correlation (opt-in) | `Monolog\Logger` | `addRecord()` |
+
+> `Cache: lockedLoadData` is recorded only for a load that **regenerated** its data or **waited** for
+> another request to do so (`magento.cache.hit`, `magento.cache.lock.waited`, `magento.cache.load_attempts`,
+> `magento.cache.lock.attempts`) — the cold-cache and stampede cases. Hits, nearly all calls, cost nothing
+> and get no span. The loader's own lock calls are counted on it rather than traced separately.
 
 ### HTTP
 
@@ -219,6 +229,10 @@ Once installed, this package automatically instruments the following Magento are
 | Redis | `Magento\Framework\Cache\Backend\Redis` | `test()`, `save()`, `remove()`, `clean()` |
 | Varnish Purge | `Magento\CacheInvalidate\Model\PurgeCache` | `sendPurgeRequest()` |
 | Fastly Purge | `Fastly\Cdn\Model\PurgeCache` | `sendPurgeRequest()` |
+| Cache Load Totals | `Magento\Framework\Cache\Frontend\Adapter\Symfony`, `...\Backend\Redis` | `load()` (counted, no span) |
+
+> Magento 2.4.9 replaced the Zend cache backends with Symfony Cache, so the `Cache: Redis:` spans above
+> only appear up to 2.4.8. Load and hit counts are taken on whichever class the version uses.
 
 ### CLI
 
@@ -226,7 +240,7 @@ Once installed, this package automatically instruments the following Magento are
 |-----------------|-------------|--------|
 | CLI Runner | `Magento\Framework\Console\Cli` | `doRun()` |
 | Console Commands | `Symfony\Component\Console\Command\Command` | `run()` |
-| Cron Jobs | `Magento\Cron\Observer\ProcessCronQueueObserver` | `tryRunJob()` |
+| Cron Jobs (one trace per job) | `Magento\Cron\Observer\ProcessCronQueueObserver` | `tryRunJob()` |
 | Reindex | `Magento\Indexer\Model\Processor` | `reindexAllInvalid()` |
 | Mview Actions | `Magento\Framework\Mview\View` | `executeAction()` |
 | Mview Execute | `Magento\Framework\Mview\ActionInterface` | `execute()` |
@@ -241,6 +255,25 @@ Once installed, this package automatically instruments the following Magento are
 > span, carries `messaging.destination.name`, `messaging.consumer.group.name`, `messaging.message.id`
 > and `messaging.system`, and gets a fresh span budget, so the SQL limit is not used up by the first
 > few messages. A batch consumer's merged batch is one trace, with `messaging.batch.message_count`.
+
+> Cron jobs work the same way: `cron:run` handles every due job of a group in one process, so each job is
+> the root of its own trace, `Cron: <job_code>`, linked back to `Cli: cron:run`, with
+> `magento.cron.group`, `magento.cron.schedule_id` and `magento.cron.status`. A job that fails is marked
+> as an error even though `tryRunJob()` records the failure instead of throwing.
+
+### Layout (storefront)
+
+| Instrumentation | Hooked Class | Method |
+|-----------------|-------------|--------|
+| Layout XML Merge | `Magento\Framework\View\Model\Layout\Merge` | `load()` |
+| Layout Generation | `Magento\Framework\View\Layout` | `generateElements()` |
+| Result Rendering | `Magento\Framework\View\Result\Layout` | `renderResult()` |
+| Block Rendering | `Magento\Framework\View\Element\AbstractBlock` | `toHtml()` |
+
+> One `Block: <name-in-layout>` span per rendered block, up to 500 per request, with `magento.block.class`,
+> `magento.block.template` and — for blocks with a cache lifetime — `magento.block.cache.hit`, which
+> separates a block served from `block_html` from one that was rendered. Registered only with
+> `OTEL_MAGENTO_FRONTEND_INSTRUMENTATION=true`.
 
 ### Entity (EAV)
 
@@ -281,6 +314,31 @@ Once installed, this package automatically instruments the following Magento are
 | Address Totals | `Magento\Quote\Model\Quote\Address\Total\AbstractTotal` | `collect()` |
 | Totals Collector | `Magento\Quote\Model\Quote\Address\Total\Collector` | `collect()` |
 | Discount Calc | `Magento\SalesRule\Model\Rule\Action\Discount\AbstractDiscount` | `calculate()` |
+
+## 📈 Request Totals and Logs
+
+Every root span — HTTP request, CLI command, queue message, cron job — ends with totals for its unit of work.
+They are counted whether or not the matching spans were recorded, so they stay true past the span limits:
+
+| Attribute | Meaning |
+|-----------|---------|
+| `magento.sql.count` | Queries run |
+| `magento.sql.distinct_count` / `magento.sql.duplicate_count` | Distinct statement shapes, and repeats of them |
+| `magento.sql.top_duplicate` / `magento.sql.top_duplicate_count` | The most repeated statement shape — the N+1 candidate |
+| `magento.cache.load_count` / `magento.cache.hit_count` | Cache loads and hits |
+| `magento.spans.dropped.<kind>` | Spans not recorded because a limit was reached (`sql`, `block`, `lock`) |
+| `magento.memory.peak_bytes` | Peak PHP memory |
+
+A statement shape is the query with its literals, numbers and `IN` lists replaced, so the same lookup run once
+per product counts as one shape repeated.
+
+**Log and trace correlation** (opt-in, `OTEL_MAGENTO_LOG_INSTRUMENTATION=true`):
+
+- Every log record written inside a span gets `trace_id` and `span_id` in its context, so a line in
+  `var/log/system.log` or `exception.log` leads to its trace.
+- Records at `ERROR` and above are added to the open span as a `log` event (`log.severity`, `log.channel`,
+  `log.message`), with the exception recorded and the span marked as an error when one is passed in the
+  context. A trace then shows the errors Magento caught and logged, not only the ones it threw.
 
 ## 🚀 Optimization Tips
 

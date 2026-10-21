@@ -53,7 +53,19 @@ class SpanLimiter
      */
     public function setLimits(array $limits): void
     {
-        $this->limits = $limits + ['default' => self::DEFAULT_LIMIT];
+        $this->limits = $limits + $this->limits + ['default' => self::DEFAULT_LIMIT];
+    }
+
+    /**
+     * Set the limit for one key, leaving the others as they are.
+     *
+     * @param string $key
+     * @param int $limit
+     * @return void
+     */
+    public function setLimit(string $key, int $limit): void
+    {
+        $this->limits[$key] = $limit;
     }
 
     /**
@@ -65,7 +77,7 @@ class SpanLimiter
      */
     public function shouldStart(string $key): bool
     {
-        $limit = $this->limits[$key] ?? $this->limits['default'];
+        $limit = $this->limits[$key] ?? $this->limits['default'] ?? self::DEFAULT_LIMIT;
         $count = $this->counters[$key] ?? 0;
 
         if ($count >= $limit) {

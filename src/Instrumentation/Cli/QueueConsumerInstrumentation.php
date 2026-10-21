@@ -15,11 +15,8 @@ use Magento\Framework\MessageQueue\ConsumerFactory;
 use Magento\Framework\MessageQueue\EnvelopeInterface;
 use Magento\Framework\MessageQueue\MessageProcessorInterface;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
-use MagePsycho\OpenTelemetry\Instrumentation\Util\SpanLimiter;
-use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\SpanBuilderInterface;
 use OpenTelemetry\API\Trace\SpanKind;
-use OpenTelemetry\Context\Context;
 use Throwable;
 
 /**
@@ -43,7 +40,7 @@ class QueueConsumerInstrumentation extends AbstractInstrumentation
     private static array $consumerNames = [];
 
     /**
-     * Per open dispatch: the span limiter counts to restore, or false when it started no span.
+     * Per open dispatch: the startUnitOfWork() state, or false when it started no span.
      *
      * @var array<int, array|false>
      */
@@ -218,21 +215,8 @@ class QueueConsumerInstrumentation extends AbstractInstrumentation
             $builder->setAttribute('messaging.consumer.group.name', $consumerName);
         }
 
-        // The process span stays reachable from every message through the link.
-        $processContext = Span::getCurrent()->getContext();
-        if ($processContext->isValid()) {
-            $builder->addLink($processContext);
-        }
-
-        /*
-         * The limiter caps spans per process. Each message gets its own budget, and the process
-         * gets its own back afterwards, so polling queries between messages stay capped as before.
-         */
-        $limiter = SpanLimiter::getInstance();
-        self::$started[] = $limiter->snapshot();
-        $limiter->reset();
-
-        self::startSpanAndAttachToContext($builder, Context::getRoot());
+        // Each message its own budget; polling queries between messages stay capped by the process's.
+        self::$started[] = self::startUnitOfWork($builder);
     }
 
     /**
@@ -243,13 +227,12 @@ class QueueConsumerInstrumentation extends AbstractInstrumentation
      */
     private static function endMessageSpan(?Throwable $exception): void
     {
-        $snapshot = array_pop(self::$started);
-        if (!is_array($snapshot)) {
+        $state = array_pop(self::$started);
+        if (!is_array($state)) {
             return;
         }
 
-        self::endSpan($exception);
-        SpanLimiter::getInstance()->restore($snapshot);
+        self::endUnitOfWork($state, $exception);
     }
 
     /**

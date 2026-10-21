@@ -14,6 +14,7 @@ use Magento\Framework\DB\Adapter\Pdo\Mysql;
 use Magento\Framework\DB\Adapter\Pdo\Mysql\Interceptor as MysqlInterceptor;
 use Magento\Framework\DB\Select;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Util\RequestStats;
 use MagePsycho\OpenTelemetry\Instrumentation\Util\SpanLimiter;
 use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\SpanKind;
@@ -63,12 +64,16 @@ class SqlInstrumentation extends AbstractInstrumentation
                 ?string     $filename,
                 ?int        $lineno,
             ) use ($limiter) {
+                // Counted before the limit, so the totals stay true once spans stop being recorded.
+                [$sqlString, ] = self::prepareQueryData($params);
+                RequestStats::recordSql($sqlString);
+
                 $resolverClass = get_class($subject);
                 if (!$limiter->shouldStart($resolverClass)) {
+                    RequestStats::recordDropped('sql');
                     return;
                 }
 
-                [$sqlString, ] = self::prepareQueryData($params);
                 $spanName = sprintf(
                     '%s %s',
                     self::SPAN_NAME_PREFIX,

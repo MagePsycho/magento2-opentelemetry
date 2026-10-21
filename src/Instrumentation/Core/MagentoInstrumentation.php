@@ -13,6 +13,7 @@ namespace MagePsycho\OpenTelemetry\Instrumentation\Core;
 use Magento\Framework\App\Bootstrap;
 use Magento\Framework\App\Http;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Util\RequestStats;
 use MagePsycho\OpenTelemetry\Instrumentation\Util\Http\ServerPropagationGetter;
 use OpenTelemetry\API\Globals;
 use OpenTelemetry\API\Trace\Span;
@@ -92,6 +93,10 @@ class MagentoInstrumentation extends AbstractInstrumentation
                 mixed       $returnValue,
                 ?Throwable  $exception,
             ) {
+                $span = self::getActiveSpan();
+                if ($span) {
+                    RequestStats::applyTo($span);
+                }
                 self::endSpan($exception);
             },
         );
@@ -116,6 +121,7 @@ class MagentoInstrumentation extends AbstractInstrumentation
             ) {
                 $scope = Context::storage()->scope();
                 $span = Span::getCurrent();
+                RequestStats::applyTo($span);
                 $span->setAttribute(TraceAttributes::HTTP_RESPONSE_STATUS_CODE, "500");
                 $span->recordException($params[0]);
                 $span->setStatus(StatusCode::STATUS_ERROR, $params[0]->getMessage());

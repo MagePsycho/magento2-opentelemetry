@@ -15,6 +15,8 @@ use MagePsycho\OpenTelemetry\Instrumentation\Http\FrontendInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\Http\GraphQlInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\Http\RestInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\Http\HttpClientInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Http\LayoutInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\InstrumentationGuard;
 use MagePsycho\OpenTelemetry\Instrumentation\InstrumentationRegistrarInterface;
 
 class HttpInstrumentationRegistrar implements InstrumentationRegistrarInterface
@@ -30,6 +32,11 @@ class HttpInstrumentationRegistrar implements InstrumentationRegistrarInterface
         FrontendInstrumentation::register();
         GraphQlInstrumentation::register();
         HttpClientInstrumentation::register();
+
+        // A span per rendered block is storefront-scale volume: only with storefront tracing on.
+        if (InstrumentationGuard::isFlagEnabled(InstrumentationGuard::FRONTEND_INSTRUMENTATION_FLAG)) {
+            LayoutInstrumentation::register();
+        }
     }
     //phpcs:enable Magento2.Functions.StaticFunction
 }

@@ -12,6 +12,7 @@ namespace MagePsycho\OpenTelemetry\Instrumentation\Cli;
 
 use Magento\Framework\Console\Cli;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Util\RequestStats;
 use Symfony\Component\Console\Command\Command;
 use Throwable;
 
@@ -74,6 +75,10 @@ class CliInstrumentation extends AbstractInstrumentation
                 mixed      $returnValue,
                 ?Throwable $exception,
             ) {
+                $span = self::getActiveSpan();
+                if ($span) {
+                    RequestStats::applyTo($span);
+                }
                 self::endSpan($exception);
             },
         );
@@ -97,11 +102,10 @@ class CliInstrumentation extends AbstractInstrumentation
                 ?int    $lineno,
             ) {
                 $commandName = $subject->getName() ?: 'unknown';
+                self::updateRootSpanName(sprintf('%s %s', self::SPAN_NAME_PREFIX, $commandName));
                 if (in_array($commandName, self::SKIPPED_COMMANDS)) {
                     return;
                 }
-
-                self::updateRootSpanName(sprintf('%s %s', self::SPAN_NAME_PREFIX, $commandName));
 
                 $spanName = sprintf(
                     '%s:run',

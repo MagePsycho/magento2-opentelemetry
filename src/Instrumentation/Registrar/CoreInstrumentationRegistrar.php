@@ -11,6 +11,7 @@ declare(strict_types=1);
 namespace MagePsycho\OpenTelemetry\Instrumentation\Registrar;
 
 use MagePsycho\OpenTelemetry\Instrumentation\Core\EventObserverInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Core\LockInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\Core\MagentoInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\InstrumentationRegistrarInterface;
 
@@ -24,6 +25,7 @@ class CoreInstrumentationRegistrar implements InstrumentationRegistrarInterface
     {
         MagentoInstrumentation::register();
         EventObserverInstrumentation::register();
+        LockInstrumentation::register();
     }
     //phpcs:enable Magento2.Functions.StaticFunction
 }

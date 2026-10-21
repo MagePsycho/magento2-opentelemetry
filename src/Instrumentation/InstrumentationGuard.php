@@ -35,6 +35,12 @@ class InstrumentationGuard
     public const MISC_INSTRUMENTATION_FLAG = 'OTEL_MAGENTO_MISC_INSTRUMENTATION';
 
     /**
+     * Opt-in for log and trace correlation (trace ids in log records, errors as span events), read from
+     * the environment or php.ini
+     */
+    public const LOG_INSTRUMENTATION_FLAG = 'OTEL_MAGENTO_LOG_INSTRUMENTATION';
+
+    /**
      * List of URLs that should be excluded from instrumentation
      */
     private const EXCLUDED_URLS = [
