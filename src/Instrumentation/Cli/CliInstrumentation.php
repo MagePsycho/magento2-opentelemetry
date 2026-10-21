@@ -14,6 +14,7 @@ use Magento\Framework\Console\Cli;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\Util\RequestStats;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputInterface;
 use Throwable;
 
 class CliInstrumentation extends AbstractInstrumentation
@@ -58,7 +59,7 @@ class CliInstrumentation extends AbstractInstrumentation
                 ?string $filename,
                 ?int    $lineno,
             ) {
-                $spanName = sprintf('%s bootstrap', self::SPAN_NAME_PREFIX);
+                $spanName = sprintf('%s %s', self::SPAN_NAME_PREFIX, self::resolveCommandName($params[0] ?? null));
                 $builder = self::createSpanBuilder(
                     $spanName,
                     $function,
@@ -82,6 +83,35 @@ class CliInstrumentation extends AbstractInstrumentation
                 self::endSpan($exception);
             },
         );
+    }
+
+    /**
+     * Names the root span from the console input before any command runs
+     *
+     * The Command::run hook renames the root span once a command starts, but some runs never get there:
+     * --version is answered by the application itself, and an unknown command fails while it is looked up.
+     * Naming the span from the input up front keeps those traces identifiable instead of all reading
+     * "bootstrap".
+     *
+     * @param mixed $input
+     * @return string
+     */
+    private static function resolveCommandName(mixed $input): string
+    {
+        if (!$input instanceof InputInterface) {
+            return 'bootstrap';
+        }
+
+        $commandName = $input->getFirstArgument();
+        if (is_string($commandName) && $commandName !== '') {
+            return $commandName;
+        }
+
+        if ($input->hasParameterOption(['--version', '-V'], true)) {
+            return '--version';
+        }
+
+        return 'bootstrap';
     }
 
     /**
