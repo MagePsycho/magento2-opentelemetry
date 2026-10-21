@@ -101,6 +101,39 @@ class SpanLimiter
     }
 
     /**
+     * Take the current counts, so a unit of work can run on a fresh budget and hand this one back.
+     *
+     * @return array{counters: array<string, int>, skipRegistry: array<string, bool>}
+     */
+    public function snapshot(): array
+    {
+        return ['counters' => $this->counters, 'skipRegistry' => $this->skipRegistry];
+    }
+
+    /**
+     * Start every key from zero, keeping the configured limits.
+     *
+     * @return void
+     */
+    public function reset(): void
+    {
+        $this->counters = [];
+        $this->skipRegistry = [];
+    }
+
+    /**
+     * Put back counts taken by snapshot().
+     *
+     * @param array{counters: array<string, int>, skipRegistry: array<string, bool>} $snapshot
+     * @return void
+     */
+    public function restore(array $snapshot): void
+    {
+        $this->counters = $snapshot['counters'];
+        $this->skipRegistry = $snapshot['skipRegistry'];
+    }
+
+    /**
      * Get current span counts for all keys.
      *
      * @return array<string, int>

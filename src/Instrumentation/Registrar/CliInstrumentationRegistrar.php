@@ -13,6 +13,7 @@ namespace MagePsycho\OpenTelemetry\Instrumentation\Registrar;
 use MagePsycho\OpenTelemetry\Instrumentation\Cli\CliInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\Cli\CronInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\Cli\IndexerInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Cli\QueueConsumerInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\InstrumentationRegistrarInterface;
 
 class CliInstrumentationRegistrar implements InstrumentationRegistrarInterface
@@ -26,6 +27,7 @@ class CliInstrumentationRegistrar implements InstrumentationRegistrarInterface
         CliInstrumentation::register();
         CronInstrumentation::register();
         IndexerInstrumentation::register();
+        QueueConsumerInstrumentation::register();
     }
     //phpcs:enable Magento2.Functions.StaticFunction
 }

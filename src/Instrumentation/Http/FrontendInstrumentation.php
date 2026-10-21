@@ -12,6 +12,7 @@ namespace MagePsycho\OpenTelemetry\Instrumentation\Http;
 use Magento\Framework\App\Area;
 use Magento\Framework\App\FrontController;
 use Magento\Framework\App\ObjectManager;
+use Magento\Framework\App\PageCache\Kernel;
 use Magento\Framework\App\Request\Http as HttpRequest;
 use Magento\Framework\App\ResponseInterface;
 use Magento\Framework\App\State;
@@ -19,9 +20,11 @@ use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\Util\Http\RequestHandler;
 use MagePsycho\OpenTelemetry\Instrumentation\Util\Http\ResponseHandler;
 use OpenTelemetry\API\Trace\Span;
+use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\Context\Context;
+use OpenTelemetry\SemConv\TraceAttributes;
 use Throwable;
 use function OpenTelemetry\Instrumentation\hook;
 
@@ -35,6 +38,7 @@ class FrontendInstrumentation extends AbstractInstrumentation
 {
     public const INSTRUMENTATION_NAME = 'io.opentelemetry.contrib.php.magento.frontend';
     private const SPAN_NAME_PREFIX = 'Frontend:';
+    private const PAGE_CACHE_ROUTE = '(page cache)';
 
     /**
      * Whether each open dispatch started a span, so the post hook only ends its own.
@@ -42,6 +46,13 @@ class FrontendInstrumentation extends AbstractInstrumentation
      * @var bool[]
      */
     private static array $started = [];
+
+    /**
+     * Whether the built-in full page cache served the open request, or null when it was not consulted.
+     *
+     * @var bool|null
+     */
+    private static ?bool $pageCacheHit = null;
 
     /**
      * @inheritdoc
@@ -58,6 +69,7 @@ class FrontendInstrumentation extends AbstractInstrumentation
     public static function register(): void
     {
         self::instrumentFrontControllerDispatch();
+        self::instrumentPageCacheLoad();
     }
 
     /**
@@ -96,8 +108,11 @@ class FrontendInstrumentation extends AbstractInstrumentation
 
                 // Provisional name; replaced by the route once the request has been routed.
                 self::updateRootSpanName(RequestHandler::generateRootSpanName(self::SPAN_NAME_PREFIX, $request));
-                $builder = RequestHandler::addRequestAttributesToSpan($builder, $request);
+                $builder = RequestHandler::addRequestAttributesToSpan($builder, $request)
+                    // The route is only known once routed; a page cache hit or a redirect never gets one.
+                    ->setAttribute(TraceAttributes::HTTP_ROUTE, null);
 
+                self::$pageCacheHit = null;
                 self::startSpanAndAttachToContext($builder);
                 self::$started[] = true;
             },
@@ -119,24 +134,24 @@ class FrontendInstrumentation extends AbstractInstrumentation
                 $span = Span::fromContext($scope->context());
 
                 $request = $params[0] ?? null;
-                if ($request instanceof HttpRequest && $route = self::routePath($request)) {
+                if (self::$pageCacheHit !== null) {
+                    $span->setAttribute('magento.page_cache.hit', self::$pageCacheHit);
+                }
+                $route = $request instanceof HttpRequest ? self::routePath($request) : null;
+                if ($route !== null) {
                     /*
                      * Low cardinality, so every PLP groups as "Frontend: GET /catalog/category/view".
                      * The URL itself stays on url.path, and the entity behind it on magento.entity.id.
                      */
-                    $spanName = sprintf(
-                        '%s %s %s',
-                        self::SPAN_NAME_PREFIX,
-                        $request->getMethod() ?: 'UNKNOWN',
-                        $route
-                    );
-                    self::updateRootSpanName($spanName);
-                    $span->updateName($spanName);
+                    self::renameSpan($span, $request, $route);
                     $span->setAttribute('http.route', $route);
                     $span->setAttribute('magento.full_action_name', $request->getFullActionName());
                     if ($entityId = self::entityId($request)) {
                         $span->setAttribute('magento.entity.id', $entityId);
                     }
+                } elseif (self::$pageCacheHit === true && $request instanceof HttpRequest) {
+                    // Never routed, so no controller to name; every cached page groups under one name.
+                    self::renameSpan($span, $request, self::PAGE_CACHE_ROUTE);
                 }
 
                 if ($exception) {
@@ -148,6 +163,46 @@ class FrontendInstrumentation extends AbstractInstrumentation
                 $span->end();
             },
         );
+    }
+
+    /**
+     * Record whether the built-in full page cache answered the request.
+     *
+     * On a hit BuiltinPlugin returns the cached page from around FrontController::dispatch without
+     * routing, so the request carries no controller to name the span after. With Varnish or Fastly a
+     * hit never reaches PHP, and this hook is not called at all.
+     *
+     * @return void
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     */
+    private static function instrumentPageCacheLoad(): void
+    {
+        self::hookOutermost(
+            Kernel::class,
+            'load',
+            null,
+            // No return type, so the cached response is passed through untouched.
+            static function (Kernel $subject, array $params, mixed $response, ?Throwable $exception) {
+                if (in_array(true, self::$started, true) && $exception === null) {
+                    self::$pageCacheHit = $response !== false;
+                }
+            },
+        );
+    }
+
+    /**
+     * Name the span, and the root span above it, as "Frontend: <method> <route>".
+     *
+     * @param SpanInterface $span
+     * @param HttpRequest $request
+     * @param string $route
+     * @return void
+     */
+    private static function renameSpan(SpanInterface $span, HttpRequest $request, string $route): void
+    {
+        $spanName = sprintf('%s %s %s', self::SPAN_NAME_PREFIX, $request->getMethod() ?: 'UNKNOWN', $route);
+        self::updateRootSpanName($spanName);
+        $span->updateName($spanName);
     }
 
     /**

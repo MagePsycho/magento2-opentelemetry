@@ -181,6 +181,7 @@ Once installed, this package automatically instruments the following Magento are
 | GraphQL Query | `Magento\Framework\GraphQl\Query\QueryProcessor` | `process()` |
 | GraphQL Resolver | `Magento\Framework\GraphQl\Query\ResolverInterface` | `resolve()` |
 | Storefront | `Magento\Framework\App\FrontController` | `dispatch()` |
+| Built-in Page Cache | `Magento\Framework\App\PageCache\Kernel` | `load()` |
 | Backend Admin | `Magento\Backend\App\AbstractAction` | `dispatch()` |
 | HTTP Client (Guzzle) | `GuzzleHttp\Client` | `send()` |
 | HTTP Client (Magento) | `Magento\Framework\HTTP\ClientInterface` | `get()`, `post()` |
@@ -192,6 +193,11 @@ Once installed, this package automatically instruments the following Magento are
 > `Frontend: GET /catalog/category/view` covers every category page, rewritten URLs included. The URL
 > itself is on `url.path`, and the product, category or CMS page id on `magento.entity.id`.
 > Requires `OTEL_MAGENTO_FRONTEND_INSTRUMENTATION=true`.
+>
+> A page served from the built-in full page cache is never routed, so there is no controller to name it
+> after: every hit is `Frontend: GET (page cache)`, with the URL still on `url.path`. Each request the
+> built-in cache was asked about carries `magento.page_cache.hit` (`true`/`false`), which gives the hit
+> ratio. Varnish and Fastly hits never reach PHP and do not appear at all.
 
 > Outbound spans record the **host and path only** — query strings routinely carry API keys and tokens.
 > The Laminas client is the one that matters for checkout: PayPal Payflow, USPS, DHL and the currency
@@ -224,6 +230,16 @@ Once installed, this package automatically instruments the following Magento are
 | Mview Actions | `Magento\Framework\Mview\View` | `executeAction()` |
 | Mview Execute | `Magento\Framework\Mview\ActionInterface` | `execute()` |
 | Mview Changelog | `Magento\Framework\Mview\View\ChangelogInterface` | `clear()` |
+| Queue Consumer | `Magento\Framework\MessageQueue\Consumer` | `dispatchMessage()` |
+| Queue Batch Consumer | `Magento\Framework\MessageQueue\MessageProcessorInterface` | `process()` |
+| Queue Consumer Name | `Magento\Framework\MessageQueue\ConsumerFactory` | `get()` |
+
+> Every message a consumer handles is the root of its own trace, `Queue: process <topic>`
+> (`SpanKind::CONSUMER`), rather than a child of the `queue:consumers:start` span — a consumer runs for
+> hours, and one trace per process would never finish. Each message trace links back to the process
+> span, carries `messaging.destination.name`, `messaging.consumer.group.name`, `messaging.message.id`
+> and `messaging.system`, and gets a fresh span budget, so the SQL limit is not used up by the first
+> few messages. A batch consumer's merged batch is one trace, with `messaging.batch.message_count`.
 
 ### Entity (EAV)
 
