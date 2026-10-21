@@ -5,6 +5,7 @@ declare(strict_types=1);
 use MagePsycho\OpenTelemetry\Instrumentation\Core\LogInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\InstrumentationGuard;
 use MagePsycho\OpenTelemetry\Instrumentation\Registrar\CacheInstrumentationRegistrar;
+use MagePsycho\OpenTelemetry\Instrumentation\Registrar\CheckoutInstrumentationRegistrar;
 use MagePsycho\OpenTelemetry\Instrumentation\Registrar\CliInstrumentationRegistrar;
 use MagePsycho\OpenTelemetry\Instrumentation\Registrar\CoreInstrumentationRegistrar;
 use MagePsycho\OpenTelemetry\Instrumentation\Registrar\DatabaseInstrumentationRegistrar;
@@ -22,6 +23,7 @@ DatabaseInstrumentationRegistrar::register();
 CliInstrumentationRegistrar::register();
 HttpInstrumentationRegistrar::register();
 EntityInstrumentationRegistrar::register();
+CheckoutInstrumentationRegistrar::register();
 
 // Optional: enable extended instrumentation (pricing, inventory, shipping, sales rules, repositories, etc.)
 // Set OTEL_MAGENTO_MISC_INSTRUMENTATION=true in your environment or php.ini to activate.

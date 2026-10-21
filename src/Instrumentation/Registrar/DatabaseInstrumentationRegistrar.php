@@ -10,6 +10,8 @@ declare(strict_types=1);
 
 namespace MagePsycho\OpenTelemetry\Instrumentation\Registrar;
 
+use MagePsycho\OpenTelemetry\Instrumentation\Database\CollectionInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Database\SearchInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\Database\SqlInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\InstrumentationRegistrarInterface;
 
@@ -22,6 +24,8 @@ class DatabaseInstrumentationRegistrar implements InstrumentationRegistrarInterf
     public static function register(): void
     {
         SqlInstrumentation::register();
+        CollectionInstrumentation::register();
+        SearchInstrumentation::register();
     }
     //phpcs:enable Magento2.Functions.StaticFunction
 }

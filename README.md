@@ -175,7 +175,12 @@ Once installed, this package automatically instruments the following Magento are
 | Named Locks | `Magento\Framework\Lock\LockManagerInterface` | `lock()`, `unlock()` |
 | Lock-Guarded Cache Loads | `Magento\Framework\Cache\LockGuardedCacheLoader` | `lockedLoadData()` |
 | Log Correlation (opt-in) | `Monolog\Logger` | `addRecord()` |
+| Error Messages | `Magento\Framework\Message\Manager` | `addMessage()` |
 
+> Error messages shown to the customer or admin user become a `magento.message` event on the span that raised
+> them — Magento turns many failures (out of stock, payment declined) into a message and a redirect rather than
+> an exception, so the trace would otherwise look like a success.
+>
 > `Cache: lockedLoadData` is recorded only for a load that **regenerated** its data or **waited** for
 > another request to do so (`magento.cache.hit`, `magento.cache.lock.waited`, `magento.cache.load_attempts`,
 > `magento.cache.lock.attempts`) — the cold-cache and stampede cases. Hits, nearly all calls, cost nothing
@@ -191,6 +196,7 @@ Once installed, this package automatically instruments the following Magento are
 | GraphQL Query | `Magento\Framework\GraphQl\Query\QueryProcessor` | `process()` |
 | GraphQL Resolver | `Magento\Framework\GraphQl\Query\ResolverInterface` | `resolve()` |
 | Storefront | `Magento\Framework\App\FrontController` | `dispatch()` |
+| Session | `Magento\Framework\Session\SaveHandler` | `read()`, `write()` |
 | Built-in Page Cache | `Magento\Framework\App\PageCache\Kernel` | `load()` |
 | Backend Admin | `Magento\Backend\App\AbstractAction` | `dispatch()` |
 | HTTP Client (Guzzle) | `GuzzleHttp\Client` | `send()` |
@@ -202,7 +208,12 @@ Once installed, this package automatically instruments the following Magento are
 > Storefront spans are named after the controller that served the request, not the URL:
 > `Frontend: GET /catalog/category/view` covers every category page, rewritten URLs included. The URL
 > itself is on `url.path`, and the product, category or CMS page id on `magento.entity.id`.
-> Requires `OTEL_MAGENTO_FRONTEND_INSTRUMENTATION=true`.
+> Requires `OTEL_MAGENTO_FRONTEND_INSTRUMENTATION=true`. `customer/section/load` also records which
+> sections it rebuilt, as `magento.customer.sections`.
+>
+> `Session: read` and `Session: write` carry `magento.session.size_bytes`, through Magento's save handler
+> whatever the backend: a session bloated by a large quote or a module storing objects in it is a cost every
+> request pays.
 >
 > A page served from the built-in full page cache is never routed, so there is no controller to name it
 > after: every hit is `Frontend: GET (page cache)`, with the URL still on `url.path`. Each request the
@@ -218,6 +229,26 @@ Once installed, this package automatically instruments the following Magento are
 | Instrumentation | Hooked Class | Method |
 |-----------------|-------------|--------|
 | SQL Queries | `Magento\Framework\DB\Adapter\Pdo\Mysql` | `query()` |
+| Collection Loads | `Magento\Framework\Data\Collection\AbstractDb` | `load()` |
+| OpenSearch | `Magento\OpenSearch\Model\SearchClient` | `query()`, `bulkQuery()` |
+| Elasticsearch 8 | `Magento\Elasticsearch8\Model\Client\Elasticsearch` | `query()`, `bulkQuery()` |
+
+> `Collection: <Name>` spans (up to 300 per request) carry the class, table, page size and item count — the
+> same collection loaded once per product is the N+1 at the model level. Loads of an already loaded collection
+> get no span. `Search: query` records the index, the engine's own `took`, the hit total and the number of
+> aggregations (layered navigation filters), never the query body; `Search: bulk` records indexing writes.
+
+### Checkout
+
+| Instrumentation | Hooked Class | Method |
+|-----------------|-------------|--------|
+| Place Order | `Magento\Quote\Model\QuoteManagement` | `placeOrder()` |
+| Submit Quote | `Magento\Quote\Model\QuoteManagement` | `submit()` |
+
+> Every channel — storefront checkout, REST, GraphQL — ends here. Spans carry `magento.payment.method`,
+> `magento.quote.id`, `magento.quote.items_count` and, on success, `magento.order.id` and
+> `magento.order.increment_id`. A failed placement throws, so it is an error span with the exception. No
+> customer data is recorded.
 
 ### Cache
 
@@ -248,6 +279,8 @@ Once installed, this package automatically instruments the following Magento are
 | Queue Consumer | `Magento\Framework\MessageQueue\Consumer` | `dispatchMessage()` |
 | Queue Batch Consumer | `Magento\Framework\MessageQueue\MessageProcessorInterface` | `process()` |
 | Queue Consumer Name | `Magento\Framework\MessageQueue\ConsumerFactory` | `get()` |
+| Queue Publish | `Magento\Framework\MessageQueue\PublisherInterface` | `publish()` |
+| Queue Trace Propagation (RabbitMQ) | `Magento\Framework\Amqp\Exchange`, `...\Amqp\Bulk\Exchange` | `enqueue()` |
 
 > Every message a consumer handles is the root of its own trace, `Queue: process <topic>`
 > (`SpanKind::CONSUMER`), rather than a child of the `queue:consumers:start` span — a consumer runs for
@@ -255,6 +288,12 @@ Once installed, this package automatically instruments the following Magento are
 > span, carries `messaging.destination.name`, `messaging.consumer.group.name`, `messaging.message.id`
 > and `messaging.system`, and gets a fresh span budget, so the SQL limit is not used up by the first
 > few messages. A batch consumer's merged batch is one trace, with `messaging.batch.message_count`.
+>
+> Publishing gets a `Queue: publish <topic>` span (`SpanKind::PRODUCER`). On RabbitMQ the trace context also
+> travels in the message's `application_headers`, and the consumer's trace links back to the publishing span
+> (`messaging.link.source=producer`) — an async REST call leads to the bulk operation that ran it. A link,
+> not a parent, because the message may wait minutes or hours. The MySQL queue stores only topic and body,
+> so there the publish span is all there is.
 
 > Cron jobs work the same way: `cron:run` handles every due job of a group in one process, so each job is
 > the root of its own trace, `Cron: <job_code>`, linked back to `Cli: cron:run`, with
@@ -326,7 +365,7 @@ They are counted whether or not the matching spans were recorded, so they stay t
 | `magento.sql.distinct_count` / `magento.sql.duplicate_count` | Distinct statement shapes, and repeats of them |
 | `magento.sql.top_duplicate` / `magento.sql.top_duplicate_count` | The most repeated statement shape — the N+1 candidate |
 | `magento.cache.load_count` / `magento.cache.hit_count` | Cache loads and hits |
-| `magento.spans.dropped.<kind>` | Spans not recorded because a limit was reached (`sql`, `block`, `lock`) |
+| `magento.spans.dropped.<kind>` | Spans not recorded because a limit was reached (`sql`, `block`, `lock`, `collection`) |
 | `magento.memory.peak_bytes` | Peak PHP memory |
 
 A statement shape is the query with its literals, numbers and `IN` lists replaced, so the same lookup run once

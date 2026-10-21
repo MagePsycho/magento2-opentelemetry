@@ -149,6 +149,14 @@ class FrontendInstrumentation extends AbstractInstrumentation
                     if ($entityId = self::entityId($request)) {
                         $span->setAttribute('magento.entity.id', $entityId);
                     }
+                    // The most frequent storefront call: which private-content sections it rebuilt.
+                    if ($request->getFullActionName() === 'customer_section_load') {
+                        $sections = $request->getParam('sections');
+                        $span->setAttribute(
+                            'magento.customer.sections',
+                            is_string($sections) && $sections !== '' ? $sections : '(all)'
+                        );
+                    }
                 } elseif (self::$pageCacheHit === true && $request instanceof HttpRequest) {
                     // Never routed, so no controller to name; every cached page groups under one name.
                     self::renameSpan($span, $request, self::PAGE_CACHE_ROUTE);

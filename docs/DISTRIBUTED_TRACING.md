@@ -279,6 +279,24 @@ End to end, in a real install: send a request with a `traceparent` header and co
 shows the caller's trace id on Magento's spans, then confirm an outbound call from Magento arrives at
 the receiving service with the same trace id and Magento's client span id.
 
+## Message queues
+
+HTTP carries the context in a header; a queued message has to carry it itself.
+
+- **Inject.** `QueuePublisherInstrumentation` opens a `Queue: publish <topic>` span (`PRODUCER`) around
+  `PublisherInterface::publish()`. On RabbitMQ, a pre-hook on `Amqp\Exchange::enqueue()` and
+  `Amqp\Bulk\Exchange::enqueue()` replaces each envelope with a copy whose `application_headers` (an
+  `AMQPTable`) gain `traceparent` - injected inside the publish span, so it names that span.
+- **Extract.** `QueueConsumerInstrumentation` reads `application_headers` off the dequeued envelope and
+  extracts the context with the same propagator.
+- **Link, not parent.** The consumer's `Queue: process <topic>` span stays the root of its own trace and gets a
+  span link to the producer (`messaging.link.source=producer`), next to its link to the consumer process. A
+  message can wait minutes or hours; parenting it would stretch the publishing request's trace across the
+  whole wait.
+- **MySQL queue.** `queue_message` stores only the topic and the body, so there is nowhere to carry the
+  context: the publish span is recorded, the link is not. Putting it in the body would change the payload
+  every consumer decodes.
+
 ## Prior art
 
 The implementations this design was checked against:

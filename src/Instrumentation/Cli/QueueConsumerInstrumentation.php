@@ -15,8 +15,11 @@ use Magento\Framework\MessageQueue\ConsumerFactory;
 use Magento\Framework\MessageQueue\EnvelopeInterface;
 use Magento\Framework\MessageQueue\MessageProcessorInterface;
 use MagePsycho\OpenTelemetry\Instrumentation\AbstractInstrumentation;
+use OpenTelemetry\API\Globals;
+use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\SpanBuilderInterface;
 use OpenTelemetry\API\Trace\SpanKind;
+use PhpAmqpLib\Wire\AMQPTable;
 use Throwable;
 
 /**
@@ -132,6 +135,7 @@ class QueueConsumerInstrumentation extends AbstractInstrumentation
                 if (isset($properties['retries']) && is_numeric($properties['retries'])) {
                     $builder->setAttribute('magento.queue.retries', (int)$properties['retries']);
                 }
+                self::linkProducer($builder, $properties);
 
                 self::startMessageSpan($builder, self::$consumerNames[spl_object_id($subject)] ?? null);
             },
@@ -233,6 +237,31 @@ class QueueConsumerInstrumentation extends AbstractInstrumentation
         }
 
         self::endUnitOfWork($state, $exception);
+    }
+
+    /**
+     * Link to the span that published the message, when the trace context came with it.
+     *
+     * Only RabbitMQ carries it, in application_headers (see QueuePublisherInstrumentation). A link rather
+     * than a parent: the message may be handled minutes or hours later, and joining it to the publishing
+     * request's trace would stretch that trace across the whole wait.
+     *
+     * @param SpanBuilderInterface $builder
+     * @param array $properties
+     * @return void
+     */
+    private static function linkProducer(SpanBuilderInterface $builder, array $properties): void
+    {
+        $headers = $properties['application_headers'] ?? null;
+        if (!$headers instanceof AMQPTable) {
+            return;
+        }
+
+        $carrier = $headers->getNativeData();
+        $producer = Span::fromContext(Globals::propagator()->extract($carrier))->getContext();
+        if ($producer->isValid()) {
+            $builder->addLink($producer, ['messaging.link.source' => 'producer']);
+        }
     }
 
     /**
