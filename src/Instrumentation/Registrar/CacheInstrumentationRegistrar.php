@@ -11,6 +11,7 @@ declare(strict_types=1);
 namespace MagePsycho\OpenTelemetry\Instrumentation\Registrar;
 
 use MagePsycho\OpenTelemetry\Instrumentation\Cache\CacheInstrumentation;
+use MagePsycho\OpenTelemetry\Instrumentation\Cache\FastlyInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\Cache\RedisInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\Cache\VarnishInstrumentation;
 use MagePsycho\OpenTelemetry\Instrumentation\InstrumentationRegistrarInterface;
@@ -26,6 +27,7 @@ class CacheInstrumentationRegistrar implements InstrumentationRegistrarInterface
         CacheInstrumentation::register();
         RedisInstrumentation::register();
         VarnishInstrumentation::register();
+        FastlyInstrumentation::register();
     }
     //phpcs:enable Magento2.Functions.StaticFunction
 }

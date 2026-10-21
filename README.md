@@ -218,6 +218,7 @@ Once installed, this package automatically instruments the following Magento are
 | Cache Invalidation | `Magento\PageCache\Observer\InvalidateCache` | `execute()` |
 | Redis | `Magento\Framework\Cache\Backend\Redis` | `test()`, `save()`, `remove()`, `clean()` |
 | Varnish Purge | `Magento\CacheInvalidate\Model\PurgeCache` | `sendPurgeRequest()` |
+| Fastly Purge | `Fastly\Cdn\Model\PurgeCache` | `sendPurgeRequest()` |
 
 ### CLI
 
